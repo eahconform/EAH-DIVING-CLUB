@@ -4066,5 +4066,60 @@ init();
 </script>
 
 </body>
+<script>
+/* =========================================================
+   EAH DIVING - CORRECTION AUTOMATIQUE DES CHEMINS IMAGES
+   Les images sont stockées à la racine du dépôt GitHub.
+========================================================= */
 
+function corrigerCheminsImages() {
+
+  document.querySelectorAll("img").forEach(function(img) {
+
+    const chemin = img.getAttribute("src");
+
+    if (
+      chemin &&
+      chemin.startsWith("assets/img/")
+    ) {
+
+      img.setAttribute(
+        "src",
+        chemin.replace(
+          "assets/img/",
+          ""
+        )
+      );
+
+    }
+
+  });
+
+}
+
+
+/* Corrige les images présentes au chargement */
+document.addEventListener(
+  "DOMContentLoaded",
+  corrigerCheminsImages
+);
+
+
+/* Corrige aussi les images créées ensuite par JavaScript */
+const observateurImages =
+  new MutationObserver(function() {
+
+    corrigerCheminsImages();
+
+  });
+
+
+observateurImages.observe(
+  document.documentElement,
+  {
+    childList: true,
+    subtree: true
+  }
+);
+</script>
 </html>
