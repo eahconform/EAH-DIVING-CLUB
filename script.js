@@ -301,47 +301,18 @@ const CRITERIA = {
 
 const BLAZON_IMAGES = {
 
-  BLANC:
-    'blazon-blanc.png',
-
-  ORANGE:
-    'blazon-orange.png',
-
-  VERT:
-    'blazon-vert.png',
-
-  BLEU:
-    'blazon-bleu.png',
-
-  ROUGE:
-    'blazon-rouge.png',
-
-  BRONZE:
-    'blazon-bronze.png',
-
-  ARGENT:
-    'blazon-argent.png',
-
-  SILVER:
-    'blazon-argent.png',
-
-  OR:
-    'blazon-or.png',
-
-  GOLD:
-    'blazon-or.png',
-
-  NOIR:
-    'blazon-noir.png',
-
-  LEGEND:
-    'blazon-legend.png',
-
-  LEGENDE:
-    'blazon-legend.png',
-
-  TITAN:
-    'blazon-titan.png'
+  BLANC: "blazon-blanc.png",
+  ORANGE: "blazon-orange.png",
+  VERT: "blazon-vert.png",
+  BLEU: "blazon-bleu.png",
+  ROUGE: "blazon-rouge.png",
+  BRONZE: "blazon-bronze.png",
+  ARGENT: "blazon-argent.png",
+  OR: "blazon-or.png",
+  NOIR: "blazon-noir.png",
+  LEGEND: "blazon-legend.png",
+  LEGENDE: "blazon-legend.png",
+  TITAN: "blazon-titan.png"
 
 };
 
@@ -902,40 +873,37 @@ function driveImage(
 }
 
 
-function normalizeBlazonName(
-  name
-) {
+function normalizeBlazonName(name) {
 
-  return String(
-    name || ''
-  )
-  .normalize(
-    'NFD'
-  )
-  .replace(
-    /[\u0300-\u036f]/g,
-    ''
-  )
-  .trim()
-  .toUpperCase();
+  return String(name || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toUpperCase()
+
+    /* transforme "Blazon Blanc" en "BLANC" */
+    .replace(/^BLAZON\s+/, "")
+
+    /* sécurité supplémentaire */
+    .replace(/^LE\s+BLAZON\s+/, "");
 
 }
 
 
-function blazonImage(
-  name
-) {
+function blazonImage(name, imageUrl = "") {
 
-  return (
-    BLAZON_IMAGES[
-      normalizeBlazonName(
-        name
-      )
-    ]
-    ||
-    ''
-  );
+  const key =
+    normalizeBlazonName(name);
 
+  if (BLAZON_IMAGES[key]) {
+    return BLAZON_IMAGES[key];
+  }
+
+  if (imageUrl) {
+    return driveImage(imageUrl);
+  }
+
+  return "";
 }
 
 
@@ -1945,81 +1913,74 @@ function fillDiveName() {
 function renderBlazons() {
 
   const grid =
-    document.getElementById(
-      'blazonGrid'
-    );
-
+    document.getElementById("blazonGrid");
 
   if (!grid) {
     return;
   }
 
 
-  if (
-    !state.blazons.length
-  ) {
+  if (!state.blazons.length) {
 
-    grid.innerHTML =
-      `
+    grid.innerHTML = `
       <div class="notice">
-        Aucun blazon disponible pour le moment.
+        Aucun blazon disponible.
       </div>
-      `;
+    `;
 
     return;
-
   }
 
 
   grid.innerHTML =
-    state.blazons
-      .map(
-        (
-          blazon,
-          index
-        ) => {
+    state.blazons.map((blazon, index) => {
 
-          const image =
-            blazonImage(
-              blazon.name
-            )
-            ||
-            driveImage(
-              blazon.imageUrl ||
-              ''
-            );
+      const image =
+        blazonImage(
+          blazon.name,
+          blazon.imageUrl || ""
+        );
 
 
-          return `
-          <article
-            class="blazon-card"
-            onclick="openBlazon(${index})"
-          >
+      return `
+        <article
+          class="blazon-card blazon-photo-card"
+          onclick="openBlazon(${index})"
+        >
 
-            ${
-              image
-              ?
-              `
-              <img
-                src="${esc(image)}"
-                alt="${esc(blazon.name)}"
-                onerror="this.style.display='none'"
-              >
-              `
-              :
-              ''
-            }
+          ${
+            image
+            ?
+            `
+            <img
+              src="${esc(image)}"
+              alt="${esc(blazon.name)}"
+              onerror="
+                console.error('Image blazon introuvable :', this.src);
+                this.style.opacity='.25';
+              "
+            >
+            `
+            :
+            `
+            <div class="blazon-image-missing">
+              Image manquante
+            </div>
+            `
+          }
 
-            <h3>
-              ${esc(blazon.name)}
-            </h3>
+          <h3>
+            ${esc(blazon.name)}
+          </h3>
 
-          </article>
-          `;
+          <span class="blazon-open">
+            Voir les critères →
+          </span>
 
-        }
-      )
-      .join('');
+        </article>
+      `;
+
+    }).join("");
 
 }
 
