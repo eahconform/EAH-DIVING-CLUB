@@ -1,19 +1,24 @@
-/* =========================================================
-   EAH DIVING CLUB V3
-========================================================= */
+/* ============================================================
+   EAH DIVING
+   FRONT-END OPTIMISE
+============================================================ */
 
 
-/* =========================================================
-   API APPS SCRIPT
-========================================================= */
+/* ============================================================
+   CONFIGURATION
+============================================================ */
 
 const API_URL =
-'https://script.google.com/macros/s/AKfycbxW7Va1ry6Qvg_HTcmsbH5lUkpZvtcuf3pFhEynZo2yh3X3anl1igsVw-3buY0l-Hjj0A/exec';
+  "https://script.google.com/macros/s/AKfycbxW7Va1ry6Qvg_HTcmsbH5lUkpZvtcuf3pFhEynZo2yh3X3anl1igsVw-3buY0l-Hjj0A/exec";
 
 
-/* =========================================================
-   PARAMETRES URL
-========================================================= */
+const BOOTSTRAP_CACHE_KEY =
+  "EAH_PUBLIC_BOOTSTRAP";
+
+
+const BOOTSTRAP_CACHE_TTL =
+  15 * 60 * 1000;
+
 
 const params =
   new URLSearchParams(
@@ -22,44 +27,59 @@ const params =
 
 
 let CLUB =
-  (
-    params.get('club')
-    ||
-    ''
-  )
-  .trim();
+  String(
+    params.get("club") || ""
+  ).trim();
 
 
-const COACH_TOKEN =
-  (
-    params.get('coachToken')
-    ||
-    ''
-  )
-  .trim();
+let CARD_ID =
+  String(
+    params.get("id") || ""
+  ).trim();
 
 
-/* =========================================================
-   ETAT
-========================================================= */
+let CARD_TOKEN =
+  String(
+    params.get("token") || ""
+  ).trim();
+
+
+let COACH_NFC_TOKEN =
+  String(
+    params.get("coachToken") || ""
+  ).trim();
+
+
+
+/* ============================================================
+   ETAT GLOBAL
+============================================================ */
 
 const state = {
 
-  club:null,
+  blazons: [],
 
-  blazons:[],
+  pricing: [],
 
-  spots:[],
+  spots: [],
 
-  pricing:[],
+  actualites: [],
 
-  news:[],
+  bootstrapLoaded: false,
 
-  session:'',
+  bootstrapPromise: null,
 
-  coach:null,
+  coachSession: "",
 
-  divers:[]
+  coach: null,
+
+  divers: [],
+
+  diverAuth: null,
+
+  profile: null,
+
+  profileHistory: null
 
 };
 
@@ -68,292 +88,617 @@ const pendingPosts =
   new Map();
 
 
-/* =========================================================
-   NOMS DES PLONGEONS
-========================================================= */
 
-const DIVE_NAMES = {
+/* ============================================================
+   DONNEES IMMEDIATES
+   permettent d'afficher la page sans attendre Apps Script
+============================================================ */
+
+const BLAZON_FALLBACK = [
+
+  {
+    key: "BLANC",
+    name: "Blazon Blanc"
+  },
+
+  {
+    key: "ORANGE",
+    name: "Blazon Orange"
+  },
+
+  {
+    key: "VERT",
+    name: "Blazon Vert"
+  },
+
+  {
+    key: "BLEU",
+    name: "Blazon Bleu"
+  },
+
+  {
+    key: "ROUGE",
+    name: "Blazon Rouge"
+  },
+
+  {
+    key: "BRONZE",
+    name: "Blazon Bronze"
+  },
+
+  {
+    key: "ARGENT",
+    name: "Blazon Argent"
+  },
+
+  {
+    key: "OR",
+    name: "Blazon Or"
+  },
+
+  {
+    key: "NOIR",
+    name: "Blazon Noir"
+  },
+
+  {
+    key: "LEGEND",
+    name: "Blazon Legend"
+  },
+
+  {
+    key: "TITAN",
+    name: "Blazon Titan"
+  }
+
+];
+
+
+const PRICING_FALLBACK = [
+
+  {
+    id: "START",
+    name: "Club Start",
+    price: 590,
+    renewal: 190,
+    description:
+      "25 profils + 25 cartes NFC/QR + espace club + Grade Reports."
+  },
+
+  {
+    id: "CLUB50",
+    name: "Club 50",
+    price: 790,
+    renewal: 290,
+    description:
+      "50 profils + 50 cartes NFC/QR + espace club et dashboard."
+  },
+
+  {
+    id: "CLUB100",
+    name: "Club 100",
+    price: 990,
+    renewal: 390,
+    description:
+      "100 profils + 100 cartes NFC/QR + espace club et dashboard."
+  },
+
+  {
+    id: "VERIFIED",
+    name: "EAH Verified",
+    price: "9 €/vidéo",
+    renewal: "—",
+    description:
+      "Vérification d'une vidéo directement par EAH Diving."
+  },
 
-  '001A':'Chute avant droite',
+  {
+    id: "INDIVIDUAL",
+    name: "Particulier",
+    price: 50,
+    renewal: "—",
+    description:
+      "Création du profil EAH + carte/QR + 3 gradations."
+  }
 
-  '001B':'Chute avant carpée',
+];
 
-  '001C':'Chute avant groupée',
 
-  '002A':'Chute arrière droite',
+const BLAZON_IMAGES = {
 
-  '002AS':'Plongeon arrière droit en sautant',
+  BLANC:
+    "blazon-blanc.png",
 
-  '100A':'Chandelle avant droite',
+  ORANGE:
+    "blazon-orange.png",
 
-  '101C':'Plongeon avant groupé',
+  VERT:
+    "blazon-vert.png",
 
-  '102C':'1 salto avant groupé',
+  BLEU:
+    "blazon-bleu.png",
 
-  '103C':'1½ salto avant groupé',
+  ROUGE:
+    "blazon-rouge.png",
 
-  '104C':'2 saltos avant groupés',
+  BRONZE:
+    "blazon-bronze.png",
 
-  '105C':'2½ saltos avant groupés',
+  ARGENT:
+    "blazon-argent.png",
 
-  '105B':'2½ saltos avant carpés',
+  OR:
+    "blazon-or.png",
 
-  '107C':'3½ saltos avant groupés',
+  NOIR:
+    "blazon-noir.png",
 
-  '107B':'3½ saltos avant carpés',
+  LEGEND:
+    "blazon-legend.png",
 
-  '109C':'4½ saltos avant groupés',
+  LEGENDE:
+    "blazon-legend.png",
 
-  '109B':'4½ saltos avant carpés',
-
-  '1011C':'5½ saltos avant groupés',
-
-
-  '201C':'Plongeon arrière groupé',
-
-  '201B':'Plongeon arrière carpé',
-
-  '202C':'1 salto arrière groupé',
-
-  '203C':'1½ salto arrière groupé',
-
-  '203B':'1½ salto arrière carpé',
-
-  '204C':'2 saltos arrière groupés',
-
-  '205C':'2½ saltos arrière groupés',
-
-  '205B':'2½ saltos arrière carpés',
-
-  '207C':'3½ saltos arrière groupés',
-
-  '207B':'3½ saltos arrière carpés',
-
-  '209C':'4½ saltos arrière groupés',
-
-
-  '301C':'Plongeon renversé groupé',
-
-  '301B':'Plongeon renversé carpé',
-
-  '302C':'1 salto renversé groupé',
-
-  '303C':'1½ salto renversé groupé',
-
-  '303B':'1½ salto renversé carpé',
-
-  '304C':'2 saltos renversés groupés',
-
-  '305C':'2½ saltos renversés groupés',
-
-  '305B':'2½ saltos renversés carpés',
-
-  '307C':'3½ saltos renversés groupés',
-
-  '307B':'3½ saltos renversés carpés',
-
-  '309C':'4½ saltos renversés groupés',
-
-
-  '401C':'Plongeon retourné groupé',
-
-  '402C':'1 salto retourné groupé',
-
-  '403C':'1½ salto retourné groupé',
-
-  '403B':'1½ salto retourné carpé',
-
-  '404C':'2 saltos retournés groupés',
-
-  '405C':'2½ saltos retournés groupés',
-
-  '405B':'2½ saltos retournés carpés',
-
-  '407C':'3½ saltos retournés groupés',
-
-  '407B':'3½ saltos retournés carpés',
-
-  '409C':'4½ saltos retournés groupés',
-
-
-  '5122A':'1 salto avant + 1 vrille, droit',
-
-  '5132D':'1½ salto avant + 1 vrille, libre',
-
-  '5134D':'1½ salto avant + 2 vrilles, libre',
-
-  '5152B':'2½ saltos avant + 1 vrille, carpé',
-
-  '5153B':'2½ saltos avant + 1½ vrille, carpé',
-
-  '5154B':'2½ saltos avant + 2 vrilles, carpé',
-
-  '5162B':'3 saltos avant + 1 vrille, carpé',
-
-  '5163B':'3 saltos avant + 1½ vrille, carpé',
-
-
-  '5211A':'Plongeon arrière + ½ vrille, droit',
-
-  '5221A':'1 salto arrière + ½ vrille, droit',
-
-  '5223D':'1 salto arrière + 1½ vrille, libre',
-
-  '5231D':'1½ salto arrière + ½ vrille, libre',
-
-  '5233D':'1½ salto arrière + 1½ vrille, libre',
-
-  '5235D':'1½ salto arrière + 2½ vrilles, libre',
-
-  '5253B':'2½ saltos arrière + 1½ vrille, carpé',
-
-  '5255B':'2½ saltos arrière + 2½ vrilles, carpé',
-
-  '5257B':'2½ saltos arrière + 3½ vrilles, carpé',
-
-  '5263B':'3 saltos arrière + 1½ vrille, carpé',
-
-
-  '5321A':'1 salto renversé + ½ vrille, droit',
-
-  '5323D':'1 salto renversé + 1½ vrille, libre',
-
-  '5331D':'1½ salto renversé + ½ vrille, libre',
-
-  '5333D':'1½ salto renversé + 1½ vrille, libre',
-
-  '5335D':'1½ salto renversé + 2½ vrilles, libre',
-
-  '5337D':'1½ salto renversé + 3½ vrilles, libre',
-
-  '5339D':'1½ salto renversé + 4½ vrilles, libre',
-
-  '5353B':'2½ saltos renversés + 1½ vrille, carpé',
-
-
-  '616C':'Équilibre avant + 3 saltos groupés',
-
-  '6243D':'Équilibre arrière + 2 saltos + 1½ vrille, libre',
-
-  '626C':'Équilibre arrière + 3 saltos groupés',
-
-  '628C':'Équilibre arrière + 4 saltos groupés'
+  TITAN:
+    "blazon-titan.png"
 
 };
 
 
-/* =========================================================
+
+/* ============================================================
    CRITERES EAH
-========================================================= */
+============================================================ */
 
 const CRITERIA = {
 
-  D:[
+  D: [
 
-    'Coordination / élan (si applicable)',
+    "Coordination / élan (si applicable)",
 
-    'Impulsion / détente / élévation',
+    "Impulsion / détente / élévation",
 
-    'Trajectoire verticale',
+    "Trajectoire verticale",
 
-    'Temps de fixation',
+    "Temps de fixation",
 
-    'Amplitude des bras'
-
-  ],
-
-
-  T:[
-
-    'Vitesse des rotations',
-
-    'Saltos et/ou vrilles contrôlés',
-
-    'Ligne / tenue / position du corps',
-
-    'Ouverture (si applicable)',
-
-    'Continuité / rythme'
+    "Amplitude des bras"
 
   ],
 
 
-  E:[
+  T: [
 
-    'Angle vertical (si applicable)',
+    "Vitesse des rotations",
 
-    'Éclaboussures / tolérance discipline',
+    "Saltos et/ou vrilles contrôlés",
 
-    'Position des bras',
+    "Ligne / tenue / position du corps",
 
-    'Jambes tendues et serrées',
+    "Ouverture (si applicable)",
 
-    'Axe d’entrée'
+    "Continuité / rythme"
+
+  ],
+
+
+  E: [
+
+    "Angle vertical (si applicable)",
+
+    "Éclaboussures / tolérance discipline",
+
+    "Position des bras",
+
+    "Jambes tendues et serrées",
+
+    "Axe d'entrée"
 
   ]
 
 };
 
 
-/* =========================================================
-   IMAGES BLAZONS V2
-========================================================= */
 
-const BLAZON_IMAGES = {
+/* ============================================================
+   PLONGEONS
+============================================================ */
 
-  BLANC: "blazon-blanc.png",
-  ORANGE: "blazon-orange.png",
-  VERT: "blazon-vert.png",
-  BLEU: "blazon-bleu.png",
-  ROUGE: "blazon-rouge.png",
-  BRONZE: "blazon-bronze.png",
-  ARGENT: "blazon-argent.png",
-  OR: "blazon-or.png",
-  NOIR: "blazon-noir.png",
-  LEGEND: "blazon-legend.png",
-  LEGENDE: "blazon-legend.png",
-  TITAN: "blazon-titan.png"
+const DIVE_NAMES = {
+
+  "001A": "Chute avant droite",
+
+  "001B": "Chute avant carpée",
+
+  "001C": "Chute avant groupée",
+
+  "002A": "Chute arrière droite",
+
+  "002AS": "Plongeon arrière droit en sautant",
+
+  "100A": "Chandelle avant droite",
+
+  "101C": "Plongeon avant groupé",
+
+  "102C": "1 salto avant groupé",
+
+  "103C": "1½ salto avant groupé",
+
+  "104C": "2 saltos avant groupés",
+
+  "105C": "2½ saltos avant groupés",
+
+  "105B": "2½ saltos avant carpés",
+
+  "107C": "3½ saltos avant groupés",
+
+  "107B": "3½ saltos avant carpés",
+
+  "109C": "4½ saltos avant groupés",
+
+  "109B": "4½ saltos avant carpés",
+
+  "1011C": "5½ saltos avant groupés",
+
+  "201C": "Plongeon arrière groupé",
+
+  "201B": "Plongeon arrière carpé",
+
+  "202C": "1 salto arrière groupé",
+
+  "203C": "1½ salto arrière groupé",
+
+  "203B": "1½ salto arrière carpé",
+
+  "204C": "2 saltos arrière groupés",
+
+  "205C": "2½ saltos arrière groupés",
+
+  "205B": "2½ saltos arrière carpés",
+
+  "207C": "3½ saltos arrière groupés",
+
+  "207B": "3½ saltos arrière carpés",
+
+  "209C": "4½ saltos arrière groupés",
+
+  "301C": "Plongeon renversé groupé",
+
+  "301B": "Plongeon renversé carpé",
+
+  "302C": "1 salto renversé groupé",
+
+  "303C": "1½ salto renversé groupé",
+
+  "303B": "1½ salto renversé carpé",
+
+  "304C": "2 saltos renversés groupés",
+
+  "305C": "2½ saltos renversés groupés",
+
+  "305B": "2½ saltos renversés carpés",
+
+  "307C": "3½ saltos renversés groupés",
+
+  "307B": "3½ saltos renversés carpés",
+
+  "309C": "4½ saltos renversés groupés",
+
+  "401C": "Plongeon retourné groupé",
+
+  "402C": "1 salto retourné groupé",
+
+  "403C": "1½ salto retourné groupé",
+
+  "403B": "1½ salto retourné carpé",
+
+  "404C": "2 saltos retournés groupés",
+
+  "405C": "2½ saltos retournés groupés",
+
+  "405B": "2½ saltos retournés carpés",
+
+  "407C": "3½ saltos retournés groupés",
+
+  "407B": "3½ saltos retournés carpés",
+
+  "409C": "4½ saltos retournés groupés",
+
+  "5122A": "1 salto avant + 1 vrille",
+
+  "5132D": "1½ salto avant + 1 vrille",
+
+  "5134D": "1½ salto avant + 2 vrilles",
+
+  "5152B": "2½ saltos avant + 1 vrille",
+
+  "5153B": "2½ saltos avant + 1½ vrille",
+
+  "5154B": "2½ saltos avant + 2 vrilles",
+
+  "5162B": "3 saltos avant + 1 vrille",
+
+  "5163B": "3 saltos avant + 1½ vrille",
+
+  "5211A": "Plongeon arrière + ½ vrille",
+
+  "5221A": "1 salto arrière + ½ vrille",
+
+  "5223D": "1 salto arrière + 1½ vrille",
+
+  "5231D": "1½ salto arrière + ½ vrille",
+
+  "5233D": "1½ salto arrière + 1½ vrille",
+
+  "5235D": "1½ salto arrière + 2½ vrilles",
+
+  "5253B": "2½ saltos arrière + 1½ vrille",
+
+  "5255B": "2½ saltos arrière + 2½ vrilles",
+
+  "5257B": "2½ saltos arrière + 3½ vrilles",
+
+  "5263B": "3 saltos arrière + 1½ vrille",
+
+  "5321A": "1 salto renversé + ½ vrille",
+
+  "5323D": "1 salto renversé + 1½ vrille",
+
+  "5331D": "1½ salto renversé + ½ vrille",
+
+  "5333D": "1½ salto renversé + 1½ vrille",
+
+  "5335D": "1½ salto renversé + 2½ vrilles",
+
+  "5337D": "1½ salto renversé + 3½ vrilles",
+
+  "5339D": "1½ salto renversé + 4½ vrilles",
+
+  "5353B": "2½ saltos renversés + 1½ vrille",
+
+  "616C": "Équilibre avant + 3 saltos groupés",
+
+  "6243D": "Équilibre arrière + 2 saltos + 1½ vrille",
+
+  "626C": "Équilibre arrière + 3 saltos groupés",
+
+  "628C": "Équilibre arrière + 4 saltos groupés"
 
 };
 
 
-/* =========================================================
-   NAVIGATION
-========================================================= */
+
+/* ============================================================
+   DOM
+============================================================ */
 
 const pages =
   document.querySelectorAll(
-    '.page'
-  );
-
-
-const navigationLinks =
-  document.querySelectorAll(
-    '[data-page]'
-  );
-
-
-const mobileMenu =
-  document.getElementById(
-    'mobileMenu'
+    ".page"
   );
 
 
 const navigation =
   document.getElementById(
-    'navigation'
+    "navigation"
   );
 
 
+const mobileMenu =
+  document.getElementById(
+    "mobileMenu"
+  );
+
+
+const siteModal =
+  document.getElementById(
+    "siteModal"
+  );
+
+
+const modalContent =
+  document.getElementById(
+    "modalContent"
+  );
+
+
+
+/* ============================================================
+   OUTILS
+============================================================ */
+
+function esc(value) {
+
+  return String(
+    value ?? ""
+  )
+  .replace(
+    /[&<>"']/g,
+    char => ({
+
+      "&": "&amp;",
+
+      "<": "&lt;",
+
+      ">": "&gt;",
+
+      '"': "&quot;",
+
+      "'": "&#39;"
+
+    }[char])
+  );
+
+}
+
+
+function val(id) {
+
+  const element =
+    document.getElementById(
+      id
+    );
+
+  return element
+    ?
+    String(
+      element.value || ""
+    )
+    :
+    "";
+
+}
+
+
+function fmtDate(value) {
+
+  if (!value) {
+    return "";
+  }
+
+
+  const date =
+    new Date(value);
+
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+
+    return String(value);
+  }
+
+
+  return date.toLocaleDateString(
+    "fr-FR"
+  );
+
+}
+
+
+function normalizeBlazonName(name) {
+
+  return String(
+    name || ""
+  )
+  .normalize("NFD")
+  .replace(
+    /[\u0300-\u036f]/g,
+    ""
+  )
+  .toUpperCase()
+  .trim()
+  .replace(
+    /^BLAZON\s+/,
+    ""
+  )
+  .replace(
+    /^LE\s+BLAZON\s+/,
+    ""
+  );
+
+}
+
+
+function driveImage(
+  url,
+  size = 1000
+) {
+
+  const value =
+    String(
+      url || ""
+    );
+
+
+  if (!value) {
+    return "";
+  }
+
+
+  let match =
+    value.match(
+      /\/file\/d\/([a-zA-Z0-9_-]+)/
+    );
+
+
+  if (
+    !match
+  ) {
+
+    match =
+      value.match(
+        /[?&]id=([a-zA-Z0-9_-]+)/
+      );
+  }
+
+
+  if (
+    match &&
+    match[1]
+  ) {
+
+    return (
+      "https://drive.google.com/thumbnail?id="
+      +
+      encodeURIComponent(
+        match[1]
+      )
+      +
+      "&sz=w"
+      +
+      size
+    );
+  }
+
+
+  return value;
+}
+
+
+function setLoadingButton(
+  button,
+  loading,
+  loadingText,
+  normalText
+) {
+
+  if (!button) {
+    return;
+  }
+
+
+  button.disabled =
+    Boolean(loading);
+
+
+  button.textContent =
+    loading
+    ?
+    loadingText
+    :
+    normalText;
+
+}
+
+
+
+/* ============================================================
+   NAVIGATION
+============================================================ */
+
 function showPage(
-  pageName
+  pageName,
+  updateHash = true
 ) {
 
   pages.forEach(
     page => {
 
       page.classList.toggle(
-        'active',
+        "active",
         page.id === pageName
       );
 
@@ -362,84 +707,140 @@ function showPage(
 
 
   if (
+    updateHash &&
     window.location.hash !==
-    '#' + pageName
+    "#" + pageName
   ) {
 
     history.replaceState(
       null,
-      '',
+      "",
       window.location.pathname
       +
       window.location.search
       +
-      '#'
+      "#"
       +
       pageName
     );
-
   }
-
-
-  window.scrollTo({
-
-    top:0,
-
-    behavior:'smooth'
-
-  });
 
 
   if (navigation) {
 
     navigation.classList.remove(
-      'open'
+      "open"
     );
+  }
 
+
+  window.scrollTo({
+    top: 0,
+    behavior: "auto"
+  });
+
+
+  if (
+    pageName ===
+    "profil"
+  ) {
+
+    maybeRestoreDiverProfile();
+  }
+
+
+  if (
+    pageName ===
+    "club"
+  ) {
+
+    restoreCoachSessionFast();
+  }
+
+
+  if (
+    pageName ===
+    "evaluation" &&
+    !state.coachSession
+  ) {
+
+    document
+      .getElementById(
+        "evaluationLocked"
+      )
+      ?.classList
+      .remove(
+        "hidden"
+      );
+
+    document
+      .getElementById(
+        "evaluationForm"
+      )
+      ?.classList
+      .add(
+        "hidden"
+      );
   }
 
 }
 
 
-navigationLinks.forEach(
-  link => {
+document
+  .querySelectorAll(
+    "[data-page]"
+  )
+  .forEach(
+    link => {
 
-    link.addEventListener(
-      'click',
-      event => {
+      link.addEventListener(
+        "click",
+        event => {
 
-        const page =
-          link.dataset.page;
+          event.preventDefault();
 
+          showPage(
+            link.dataset.page
+          );
 
-        if (!page) {
-          return;
         }
+      );
 
-
-        event.preventDefault();
-
-
-        showPage(
-          page
-        );
-
-      }
-    );
-
-  }
-);
+    }
+  );
 
 
 document
   .querySelectorAll(
-    '[data-open]'
+    "[data-page-button]"
+  )
+  .forEach(
+    button => {
+
+      button.addEventListener(
+        "click",
+        () => {
+
+          showPage(
+            button.dataset.pageButton
+          );
+
+        }
+      );
+
+    }
+  );
+
+
+document
+  .querySelectorAll(
+    "[data-open]"
   )
   .forEach(
     card => {
 
       card.addEventListener(
-        'click',
+        "click",
         () => {
 
           showPage(
@@ -453,14 +854,16 @@ document
   );
 
 
-if (mobileMenu) {
+if (
+  mobileMenu
+) {
 
   mobileMenu.addEventListener(
-    'click',
+    "click",
     () => {
 
       navigation.classList.toggle(
-        'open'
+        "open"
       );
 
     }
@@ -469,59 +872,18 @@ if (mobileMenu) {
 }
 
 
-window.addEventListener(
-  'hashchange',
-  () => {
 
-    const hash =
-      location.hash
-        .replace(
-          '#',
-          ''
-        );
-
-
-    if (
-      hash &&
-      document.getElementById(
-        hash
-      )
-    ) {
-
-      showPage(
-        hash
-      );
-
-    }
-
-  }
-);
-
-
-/* =========================================================
+/* ============================================================
    MODAL
-========================================================= */
+============================================================ */
 
-const siteModal =
-  document.getElementById(
-    'siteModal'
-  );
-
-
-const modalContent =
-  document.getElementById(
-    'modalContent'
-  );
-
-
-function openModal(
-  html
-) {
+function openModal(html) {
 
   if (
     !siteModal ||
     !modalContent
   ) {
+
     return;
   }
 
@@ -531,18 +893,18 @@ function openModal(
 
 
   siteModal.classList.add(
-    'show'
+    "show"
   );
 
 
   siteModal.setAttribute(
-    'aria-hidden',
-    'false'
+    "aria-hidden",
+    "false"
   );
 
 
   document.body.classList.add(
-    'modal-open'
+    "modal-open"
   );
 
 }
@@ -556,30 +918,30 @@ function closeModal() {
 
 
   siteModal.classList.remove(
-    'show'
+    "show"
   );
 
 
   siteModal.setAttribute(
-    'aria-hidden',
-    'true'
+    "aria-hidden",
+    "true"
   );
 
 
   document.body.classList.remove(
-    'modal-open'
+    "modal-open"
   );
 
 }
 
 
 document.addEventListener(
-  'click',
+  "click",
   event => {
 
     if (
       event.target.matches(
-        '[data-close-modal]'
+        "[data-close-modal]"
       )
     ) {
 
@@ -592,12 +954,12 @@ document.addEventListener(
 
 
 document.addEventListener(
-  'keydown',
+  "keydown",
   event => {
 
     if (
       event.key ===
-      'Escape'
+      "Escape"
     ) {
 
       closeModal();
@@ -608,311 +970,159 @@ document.addEventListener(
 );
 
 
-/* =========================================================
-   FICHES GRADING
-========================================================= */
 
-const gradingSheets = {
+/* ============================================================
+   API GET JSONP
+============================================================ */
 
-  D:{
+function getJSON(
+  action,
+  extra = {},
+  timeoutMs = 20000
+) {
 
-    title:
-      'Takeoff — Départ',
+  return new Promise(
+    (
+      resolve,
+      reject
+    ) => {
 
-    image:
-      'grading-takeoff.png',
-
-    intro:
-      'Le Takeoff analyse la préparation et le départ.'
-
-  },
-
-
-  T:{
-
-    title:
-      'Trick — Phase aérienne',
-
-    image:
-      'grading-trick.png',
-
-    intro:
-      'Le Trick analyse la qualité de la phase aérienne.'
-
-  },
+      const callbackName =
+        "eah_cb_"
+        +
+        Date.now()
+        +
+        "_"
+        +
+        Math.random()
+          .toString(36)
+          .slice(2);
 
 
-  E:{
-
-    title:
-      "Entry — Entrée à l'eau",
-
-    image:
-      'grading-entry.png',
-
-    intro:
-      "L'Entry analyse la phase terminale de la performance."
-
-  }
-
-};
+      const script =
+        document.createElement(
+          "script"
+        );
 
 
-document
-  .querySelectorAll(
-    '.grading-card[data-sheet]'
-  )
-  .forEach(
-    card => {
+      let finished =
+        false;
 
-      card.addEventListener(
-        'click',
+
+      const cleanup =
         () => {
 
-          const sheet =
-            gradingSheets[
-              card.dataset.sheet
-            ];
-
-
-          if (!sheet) {
+          if (finished) {
             return;
           }
 
+          finished =
+            true;
 
-          openModal(
-            `
-            <div class="modal-inner">
+          delete window[
+            callbackName
+          ];
 
-              <span class="overline">
-                GRILLE EAH
-              </span>
+          script.remove();
 
-              <h2>
-                ${sheet.title}
-              </h2>
+        };
 
-              <p>
-                ${sheet.intro}
-              </p>
 
-              <div class="modal-note">
+      const timer =
+        setTimeout(
+          () => {
 
-                Chaque critère comporte cinq éléments.
+            cleanup();
 
-                <br><br>
+            reject(
+              new Error(
+                "Le serveur met trop de temps à répondre."
+              )
+            );
 
-                2 = Validé<br>
-                1 = Partiel<br>
-                0 = Non validé<br>
-                N/A = Non applicable
+          },
+          timeoutMs
+        );
 
-              </div>
 
-              <img
-                class="modal-image"
-                src="${sheet.image}"
-                alt="${sheet.title}"
-              >
+      window[
+        callbackName
+      ] =
+        data => {
 
-            </div>
-            `
+          clearTimeout(
+            timer
           );
 
-        }
+          cleanup();
+
+          resolve(
+            data
+          );
+
+        };
+
+
+      const query =
+        new URLSearchParams({
+
+          action,
+
+          callback:
+            callbackName,
+
+          ...extra
+
+        });
+
+
+      script.src =
+        API_URL
+        +
+        "?"
+        +
+        query.toString();
+
+
+      script.async =
+        true;
+
+
+      script.onerror =
+        () => {
+
+          clearTimeout(
+            timer
+          );
+
+          cleanup();
+
+          reject(
+            new Error(
+              "Connexion au serveur impossible."
+            )
+          );
+
+        };
+
+
+      document.body.appendChild(
+        script
       );
 
     }
   );
 
-
-/* =========================================================
-   OUTILS
-========================================================= */
-
-function esc(
-  value
-) {
-
-  return String(
-    value ?? ''
-  )
-  .replace(
-    /[&<>"']/g,
-    character => ({
-
-      '&':'&amp;',
-
-      '<':'&lt;',
-
-      '>':'&gt;',
-
-      '"':'&quot;',
-
-      "'":'&#39;'
-
-    }[character])
-  );
-
 }
 
 
-function fmtDate(
-  value
-) {
 
-  if (!value) {
-    return '';
-  }
-
-
-  const date =
-    new Date(
-      value
-    );
-
-
-  return isNaN(
-    date
-  )
-  ?
-  String(
-    value
-  )
-  :
-  date.toLocaleDateString(
-    'fr-FR'
-  );
-
-}
-
-
-function val(
-  id
-) {
-
-  const element =
-    document.getElementById(
-      id
-    );
-
-
-  return element
-    ?
-    element.value
-    :
-    '';
-
-}
-
-
-function truthy(
-  value
-) {
-
-  return (
-    value === true
-    ||
-    [
-      'TRUE',
-      '1',
-      'YES',
-      'OUI',
-      'ON'
-    ]
-    .includes(
-      String(
-        value ?? ''
-      )
-      .trim()
-      .toUpperCase()
-    )
-  );
-
-}
-
-
-function driveImage(
-  url
-) {
-
-  if (!url) {
-    return '';
-  }
-
-
-  const source =
-    String(
-      url
-    );
-
-
-  const match =
-    source.match(
-      /\/file\/d\/([a-zA-Z0-9_-]+)/
-    )
-    ||
-    source.match(
-      /[?&]id=([a-zA-Z0-9_-]+)/
-    );
-
-
-  if (!match) {
-    return source;
-  }
-
-
-  return (
-    'https://drive.google.com/thumbnail?id='
-    +
-    match[1]
-    +
-    '&sz=w1600'
-  );
-
-}
-
-
-function normalizeBlazonName(name) {
-
-  return String(name || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim()
-    .toUpperCase()
-
-    /* transforme "Blazon Blanc" en "BLANC" */
-    .replace(/^BLAZON\s+/, "")
-
-    /* sécurité supplémentaire */
-    .replace(/^LE\s+BLAZON\s+/, "");
-
-}
-
-
-function blazonImage(name, imageUrl = "") {
-
-  const key =
-    normalizeBlazonName(name);
-
-  if (BLAZON_IMAGES[key]) {
-    return BLAZON_IMAGES[key];
-  }
-
-  if (imageUrl) {
-    return driveImage(imageUrl);
-  }
-
-  return "";
-}
-
-
-/* =========================================================
-   IFRAME RETOUR
-========================================================= */
+/* ============================================================
+   API POST IFRAME
+============================================================ */
 
 window.addEventListener(
-  'message',
+  "message",
   event => {
 
     const message =
@@ -921,15 +1131,13 @@ window.addEventListener(
 
 
     if (
-      !message.requestId
-      ||
+      !message.requestId ||
       !pendingPosts.has(
         message.requestId
       )
     ) {
 
       return;
-
     }
 
 
@@ -952,159 +1160,9 @@ window.addEventListener(
 );
 
 
-/* =========================================================
-   GET JSONP
-========================================================= */
-
-function getJSON(
-  action,
-  extra = {}
-) {
-
-  return new Promise(
-    (
-      resolve,
-      reject
-    ) => {
-
-      const callback =
-        'cb_'
-        +
-        Date.now()
-        +
-        '_'
-        +
-        Math.random()
-          .toString(36)
-          .slice(2);
-
-
-      const script =
-        document.createElement(
-          'script'
-        );
-
-
-      let finished =
-        false;
-
-
-      const cleanup =
-        () => {
-
-          if (finished) {
-            return;
-          }
-
-          finished =
-            true;
-
-
-          try {
-
-            delete window[
-              callback
-            ];
-
-          } catch(e) {}
-
-
-          try {
-
-            script.remove();
-
-          } catch(e) {}
-
-        };
-
-
-      window[
-        callback
-      ] =
-        data => {
-
-          resolve(
-            data
-          );
-
-
-          cleanup();
-
-        };
-
-
-      const query =
-        new URLSearchParams({
-
-          action,
-
-          callback,
-
-          ...extra
-
-        });
-
-
-      script.src =
-        API_URL
-        +
-        '?'
-        +
-        query.toString();
-
-
-      script.onerror =
-        () => {
-
-          reject(
-            new Error(
-              'Impossible de joindre Apps Script.'
-            )
-          );
-
-
-          cleanup();
-
-        };
-
-
-      document.body.appendChild(
-        script
-      );
-
-
-      setTimeout(
-        () => {
-
-          if (!finished) {
-
-            reject(
-              new Error(
-                'Apps Script ne répond pas.'
-              )
-            );
-
-
-            cleanup();
-
-          }
-
-        },
-        30000
-      );
-
-    }
-  );
-
-}
-
-
-/* =========================================================
-   POST IFRAME
-========================================================= */
-
 function postIframe(
-  data
+  data,
+  timeoutMs = 30000
 ) {
 
   return new Promise(
@@ -1114,11 +1172,11 @@ function postIframe(
     ) => {
 
       const requestId =
-        'req_'
+        "req_"
         +
         Date.now()
         +
-        '_'
+        "_"
         +
         Math.random()
           .toString(36)
@@ -1136,12 +1194,12 @@ function postIframe(
 
       const form =
         document.createElement(
-          'form'
+          "form"
         );
 
 
       form.method =
-        'POST';
+        "POST";
 
 
       form.action =
@@ -1149,11 +1207,11 @@ function postIframe(
 
 
       form.target =
-        'apiFrame';
+        "apiFrame";
 
 
       form.style.display =
-        'none';
+        "none";
 
 
       const payload = {
@@ -1161,46 +1219,43 @@ function postIframe(
         ...data,
 
         transport:
-          'iframe',
+          "iframe",
 
         requestId
 
       };
 
 
-      Object
-        .entries(
-          payload
-        )
-        .forEach(
-          ([key,value]) => {
+      Object.entries(
+        payload
+      )
+      .forEach(
+        ([key,value]) => {
 
-            const field =
-              document.createElement(
-                'textarea'
-              );
-
-
-            field.name =
-              key;
-
-
-            field.value =
-              value == null
-              ?
-              ''
-              :
-              String(
-                value
-              );
-
-
-            form.appendChild(
-              field
+          const field =
+            document.createElement(
+              "textarea"
             );
 
-          }
-        );
+
+          field.name =
+            key;
+
+
+          field.value =
+            value == null
+            ?
+            ""
+            :
+            String(value);
+
+
+          form.appendChild(
+            field
+          );
+
+        }
+      );
 
 
       document.body.appendChild(
@@ -1237,14 +1292,14 @@ function postIframe(
 
             reject(
               new Error(
-                'Délai dépassé lors de la communication avec Apps Script.'
+                "Le serveur met trop de temps à répondre."
               )
             );
 
           }
 
         },
-        120000
+        timeoutMs
       );
 
     }
@@ -1253,743 +1308,407 @@ function postIframe(
 }
 
 
-/* =========================================================
-   INITIALISATION
-========================================================= */
 
-async function init() {
+/* ============================================================
+   BOOTSTRAP PUBLIC
+============================================================ */
 
-  renderCriteria();
+function loadBootstrapCache() {
 
-  renderDiveList();
+  try {
+
+    const raw =
+      localStorage.getItem(
+        BOOTSTRAP_CACHE_KEY
+      );
 
 
-  const baseRequests = [
+    if (!raw) {
+      return null;
+    }
 
-    getJSON(
-      'blazons'
-    )
-    .catch(
-      () => ({
-        ok:false,
-        items:[]
+
+    const cached =
+      JSON.parse(
+        raw
+      );
+
+
+    if (
+      !cached ||
+      !cached.data
+    ) {
+
+      return null;
+    }
+
+
+    return cached;
+
+  } catch (_) {
+
+    return null;
+  }
+
+}
+
+
+function saveBootstrapCache(data) {
+
+  try {
+
+    localStorage.setItem(
+      BOOTSTRAP_CACHE_KEY,
+      JSON.stringify({
+
+        time:
+          Date.now(),
+
+        data:
+          data
+
       })
-    ),
-
-
-    getJSON(
-      'pricing'
-    )
-    .catch(
-      () => ({
-        ok:false,
-        items:[]
-      })
-    ),
-
-
-    getJSON(
-      'spots'
-    )
-    .catch(
-      () => ({
-        ok:false,
-        items:[]
-      })
-    ),
-
-
-    getJSON(
-      'news'
-    )
-    .catch(
-      () => ({
-        ok:false,
-        items:[]
-      })
-    )
-
-  ];
-
-
-  let clubPromise =
-    Promise.resolve(
-      {
-        ok:false
-      }
     );
 
+  } catch (_) {}
 
-  if (CLUB) {
+}
 
-    clubPromise =
-      getJSON(
-        'club',
-        {
-          club:
-            CLUB
-        }
-      )
-      .catch(
-        () => ({
-          ok:false
-        })
-      );
+
+function applyBootstrapData(data) {
+
+  if (!data) {
+    return;
+  }
+
+
+  if (
+    Array.isArray(
+      data.blazons
+    ) &&
+    data.blazons.length
+  ) {
+
+    state.blazons =
+      data.blazons;
 
   }
 
 
-  const [
-    blazons,
-    pricing,
-    spots,
-    news,
-    club
-  ] =
-  await Promise.all([
+  if (
+    Array.isArray(
+      data.pricing
+    ) &&
+    data.pricing.length
+  ) {
 
-    ...baseRequests,
+    state.pricing =
+      data.pricing;
 
-    clubPromise
-
-  ]);
+  }
 
 
-  /* BLAZONS */
-
-  state.blazons =
-    blazons?.ok
-    ?
-    (
-      blazons.items ||
-      []
+  if (
+    Array.isArray(
+      data.spots
     )
-    :
-    [];
+  ) {
+
+    state.spots =
+      data.spots;
+
+  }
+
+
+  if (
+    Array.isArray(
+      data.actualites
+    )
+  ) {
+
+    state.actualites =
+      data.actualites;
+
+  }
 
 
   renderBlazons();
 
+  renderPricing();
 
-  /* TARIFS */
+  renderSpots();
+
+  renderActualites();
+
+  renderSpotSelect();
+
+}
+
+
+async function refreshBootstrap() {
+
+  if (
+    state.bootstrapPromise
+  ) {
+
+    return state.bootstrapPromise;
+  }
+
+
+  state.bootstrapPromise =
+    getJSON(
+      "bootstrap",
+      {},
+      25000
+    )
+    .then(
+      response => {
+
+        if (
+          response &&
+          response.ok
+        ) {
+
+          state.bootstrapLoaded =
+            true;
+
+
+          applyBootstrapData(
+            response
+          );
+
+
+          saveBootstrapCache(
+            response
+          );
+
+        }
+
+
+        return response;
+
+      }
+    )
+    .catch(
+      error => {
+
+        console.warn(
+          "Bootstrap :",
+          error.message
+        );
+
+        return null;
+
+      }
+    )
+    .finally(
+      () => {
+
+        state.bootstrapPromise =
+          null;
+
+      }
+    );
+
+
+  return state.bootstrapPromise;
+
+}
+
+
+function initialisePublicData() {
+
+  /*
+    Affichage instantané avant tout appel réseau
+  */
+
+  state.blazons =
+    BLAZON_FALLBACK.slice();
+
 
   state.pricing =
-    pricing?.ok
-    ?
-    (
-      pricing.items ||
-      []
-    )
-    :
-    [];
+    PRICING_FALLBACK.slice();
 
+
+  renderBlazons();
 
   renderPricing();
 
 
-  /* SPOTS */
+  /*
+    Anciennes données disponibles dans le navigateur
+  */
 
-  state.spots =
-    spots?.ok
-    ?
-    (
-      spots.items ||
-      []
-    )
-    .filter(
-      item => {
-
-        return (
-          item.active === undefined
-          ||
-          item.active === ''
-          ||
-          truthy(
-            item.active
-          )
-        );
-
-      }
-    )
-    :
-    [];
+  const cached =
+    loadBootstrapCache();
 
 
-  state.spots.sort(
-    (
-      a,
-      b
-    ) =>
-      (
-        Number(
-          a.order
-        )
-        ||
-        9999
-      )
-      -
-      (
-        Number(
-          b.order
-        )
-        ||
-        9999
-      )
+  if (
+    cached &&
+    cached.data
+  ) {
+
+    applyBootstrapData(
+      cached.data
+    );
+
+  }
+
+
+  /*
+    Actualisation non bloquante
+  */
+
+  setTimeout(
+    refreshBootstrap,
+    10
   );
 
-
-  renderSpots();
-
-  renderSpotSelect();
-
-
-  /* ACTUALITES */
-
-  state.news =
-    news?.ok
-    ?
-    (
-      news.items ||
-      []
-    )
-    .filter(
-      item => {
-
-        return (
-          item.active === undefined
-          ||
-          item.active === ''
-          ||
-          truthy(
-            item.active
-          )
-        );
-
-      }
-    )
-    :
-    [];
-
-
-  state.news.sort(
-    (
-      a,
-      b
-    ) =>
-      (
-        Number(
-          a.order
-        )
-        ||
-        9999
-      )
-      -
-      (
-        Number(
-          b.order
-        )
-        ||
-        9999
-      )
-  );
-
-
-  renderNews();
-
-
-  /* CLUB PRESENT DANS L'URL */
-
-  if (
-    CLUB &&
-    club?.ok
-  ) {
-
-    state.club =
-      club.club;
-
-
-    renderClubIdentity(
-      club.club
-    );
-
-
-    prefillClubNames(
-      club.club.name
-    );
-
-  }
-
-
-  /* CARTE PLONGEUR */
-
-  const profileId =
-    params.get(
-      'id'
-    );
-
-
-  const profileToken =
-    params.get(
-      'token'
-    );
-
-
-  if (
-    profileId &&
-    profileToken
-  ) {
-
-    document
-      .getElementById(
-        'profileId'
-      )
-      .value =
-      profileId;
-
-
-    document
-      .getElementById(
-        'profileToken'
-      )
-      .value =
-      profileToken;
-
-
-    showPage(
-      'profil'
-    );
-
-
-    await loadProfileManual();
-
-
-    return;
-
-  }
-
-
-  /* CARTE NFC COACH */
-
-  if (
-    CLUB &&
-    COACH_TOKEN
-  ) {
-
-    showPage(
-      'club'
-    );
-
-
-    await autoCoachNfcLogin(
-      COACH_TOKEN
-    );
-
-
-    return;
-
-  }
-
-
-  /* PAGE STANDARD */
-
-  const hash =
-    location.hash
-      .replace(
-        '#',
-        ''
-      );
-
-
-  if (
-    hash &&
-    document.getElementById(
-      hash
-    )
-  ) {
-
-    showPage(
-      hash
-    );
-
-  } else {
-
-    showPage(
-      'accueil'
-    );
-
-  }
-
 }
 
 
-/* =========================================================
-   IDENTITE CLUB
-========================================================= */
 
-function renderClubIdentity(
-  club
-) {
-
-  const box =
-    document.getElementById(
-      'clubIdentity'
-    );
-
-
-  if (!box) {
-    return;
-  }
-
-
-  box.classList.remove(
-    'hidden'
-  );
-
-
-  const logo =
-    driveImage(
-      club.logoUrl ||
-      ''
-    );
-
-
-  box.innerHTML =
-  `
-  ${
-    logo
-    ?
-    `
-    <img
-      src="${esc(logo)}"
-      alt="${esc(club.name || 'Club')}"
-    >
-    `
-    :
-    ''
-  }
-
-  <div>
-
-    <span class="overline">
-      ESPACE CLUB
-    </span>
-
-    <h2>
-      ${esc(
-        club.name ||
-        'EAH Diving Club'
-      )}
-    </h2>
-
-    <p>
-      ${esc(
-        club.welcomeText
-        ||
-        'EAH fournit l’outil. Le coach reste le coach.'
-      )}
-    </p>
-
-    ${
-      club.city
-      ?
-      `
-      <span class="pill">
-        ${esc(club.city)}
-      </span>
-      `
-      :
-      ''
-    }
-
-  </div>
-  `;
-
-
-  const title =
-    document.getElementById(
-      'privateClubTitle'
-    );
-
-
-  if (title) {
-
-    title.textContent =
-      club.name ||
-      'EAH Diving Club';
-
-  }
-
-}
-
-
-function prefillClubNames(
-  clubName
-) {
-
-  const coach =
-    document.getElementById(
-      'coachClubName'
-    );
-
-
-  const diver =
-    document.getElementById(
-      'diverClubName'
-    );
-
-
-  if (
-    coach &&
-    !coach.value
-  ) {
-
-    coach.value =
-      clubName ||
-      '';
-
-  }
-
-
-  if (
-    diver &&
-    !diver.value
-  ) {
-
-    diver.value =
-      clubName ||
-      '';
-
-  }
-
-}
-
-
-/* =========================================================
-   CRITERES
-========================================================= */
-
-function renderCriteria() {
-
-  Object
-    .entries(
-      CRITERIA
-    )
-    .forEach(
-      ([prefix,items]) => {
-
-        const container =
-          document.getElementById(
-            'criteria' +
-            prefix
-          );
-
-
-        if (!container) {
-          return;
-        }
-
-
-        container.innerHTML =
-          items
-          .map(
-            (
-              text,
-              index
-            ) =>
-            `
-            <div>
-
-              <strong>
-                ${prefix}${index + 1}
-              </strong>
-
-              —
-
-              ${esc(text)}
-
-            </div>
-
-
-            <select
-              id="${prefix}${index + 1}"
-            >
-
-              <option value="2">
-                2 — Validé
-              </option>
-
-              <option value="1">
-                1 — Partiel
-              </option>
-
-              <option value="0">
-                0 — Non validé
-              </option>
-
-              <option value="NA">
-                N/A
-              </option>
-
-            </select>
-            `
-          )
-          .join('');
-
-      }
-    );
-
-}
-
-
-/* =========================================================
-   PLONGEONS
-========================================================= */
-
-function renderDiveList() {
-
-  const list =
-    document.getElementById(
-      'diveCodes'
-    );
-
-
-  if (!list) {
-    return;
-  }
-
-
-  list.innerHTML =
-    Object
-      .entries(
-        DIVE_NAMES
-      )
-      .map(
-        ([code,name]) =>
-        `
-        <option value="${code}">
-          ${esc(name)}
-        </option>
-        `
-      )
-      .join('');
-
-}
-
-
-function fillDiveName() {
-
-  const code =
-    val(
-      'diveCode'
-    )
-    .trim()
-    .toUpperCase();
-
-
-  if (
-    DIVE_NAMES[
-      code
-    ]
-  ) {
-
-    document
-      .getElementById(
-        'diveName'
-      )
-      .value =
-      DIVE_NAMES[
-        code
-      ];
-
-  }
-
-}
-
-
-/* =========================================================
+/* ============================================================
    BLAZONS
-========================================================= */
+============================================================ */
+
+function blazonImage(
+  blazon
+) {
+
+  const key =
+    normalizeBlazonName(
+      blazon.key ||
+      blazon.name
+    );
+
+
+  if (
+    BLAZON_IMAGES[key]
+  ) {
+
+    return BLAZON_IMAGES[
+      key
+    ];
+  }
+
+
+  const backendImage =
+    String(
+      blazon.imageUrl || ""
+    );
+
+
+  if (
+    backendImage
+  ) {
+
+    return backendImage
+      .replace(
+        /^assets\/img\//,
+        ""
+      );
+  }
+
+
+  return "";
+
+}
+
 
 function renderBlazons() {
 
   const grid =
-    document.getElementById("blazonGrid");
+    document.getElementById(
+      "blazonGrid"
+    );
+
 
   if (!grid) {
     return;
   }
 
 
-  if (!state.blazons.length) {
-
-    grid.innerHTML = `
-      <div class="notice">
-        Aucun blazon disponible.
-      </div>
-    `;
-
-    return;
-  }
-
-
   grid.innerHTML =
-    state.blazons.map((blazon, index) => {
+    state.blazons
+      .map(
+        (
+          blazon,
+          index
+        ) => {
 
-      const image =
-        blazonImage(
-          blazon.name,
-          blazon.imageUrl || ""
+          const image =
+            blazonImage(
+              blazon
+            );
+
+
+          return `
+            <article
+              class="blazon-card"
+              data-blazon-index="${index}"
+            >
+
+              ${
+                image
+                ?
+                `
+                <img
+                  src="${esc(image)}"
+                  alt="${esc(blazon.name)}"
+                  loading="lazy"
+                  decoding="async"
+                >
+                `
+                :
+                ""
+              }
+
+              <h3>
+                ${esc(blazon.name)}
+              </h3>
+
+              <span>
+                Voir les critères →
+              </span>
+
+            </article>
+          `;
+
+        }
+      )
+      .join("");
+
+
+  grid
+    .querySelectorAll(
+      "[data-blazon-index]"
+    )
+    .forEach(
+      card => {
+
+        card.addEventListener(
+          "click",
+          () => {
+
+            openBlazon(
+              Number(
+                card.dataset.blazonIndex
+              )
+            );
+
+          }
         );
 
-
-      return `
-        <article
-          class="blazon-card blazon-photo-card"
-          onclick="openBlazon(${index})"
-        >
-
-          ${
-            image
-            ?
-            `
-            <img
-              src="${esc(image)}"
-              alt="${esc(blazon.name)}"
-              onerror="
-                console.error('Image blazon introuvable :', this.src);
-                this.style.opacity='.25';
-              "
-            >
-            `
-            :
-            `
-            <div class="blazon-image-missing">
-              Image manquante
-            </div>
-            `
-          }
-
-          <h3>
-            ${esc(blazon.name)}
-          </h3>
-
-          <span class="blazon-open">
-            Voir les critères →
-          </span>
-
-        </article>
-      `;
-
-    }).join("");
+      }
+    );
 
 }
 
 
-function openBlazon(
-  index
-) {
+async function openBlazon(index) {
 
-  const blazon =
+  let blazon =
     state.blazons[
       index
     ];
@@ -2000,40 +1719,75 @@ function openBlazon(
   }
 
 
+  if (
+    !blazon.rules
+  ) {
+
+    openModal(`
+      <div class="modal-inner">
+
+        <span class="overline">
+          BLAZON EAH
+        </span>
+
+        <h2>
+          ${esc(blazon.name)}
+        </h2>
+
+        <div class="loading-panel">
+          Chargement des critères…
+        </div>
+
+      </div>
+    `);
+
+
+    await refreshBootstrap();
+
+
+    blazon =
+      state.blazons[
+        index
+      ];
+
+
+    if (
+      !blazon ||
+      !blazon.rules
+    ) {
+
+      openModal(`
+        <div class="modal-inner">
+
+          <h2>
+            ${esc(
+              blazon
+              ?
+              blazon.name
+              :
+              "Blazon"
+            )}
+          </h2>
+
+          <div class="notice error">
+            Les critères ne sont pas disponibles actuellement.
+          </div>
+
+        </div>
+      `);
+
+      return;
+    }
+
+  }
+
+
   const rules =
     blazon.rules ||
     {};
 
 
-  let html =
-  `
-  <div class="modal-inner">
-
-    <span class="overline">
-      RÉFÉRENTIEL EAH DIVING V2
-    </span>
-
-    <h2>
-      ${esc(blazon.name)}
-    </h2>
-  `;
-
-
-  if (
-    rules.summary
-  ) {
-
-    html +=
-      `
-      <div class="modal-note">
-        ${esc(rules.summary)}
-      </div>
-      `;
-
-  }
-
-
-  const allSeries = [
+  const series = [
 
     ...(
       rules.series ||
@@ -2053,176 +1807,180 @@ function openBlazon(
   ];
 
 
-  if (
-    !allSeries.length
-  ) {
+  let html = `
 
-    html +=
-      `
-      <div class="notice">
-        Conditions non disponibles.
-      </div>
-      `;
+    <div class="modal-inner">
 
-  }
+      <span class="overline">
+        PROGRESSION EAH
+      </span>
+
+      <h2>
+        ${esc(blazon.name)}
+      </h2>
+
+      ${
+        rules.summary
+        ?
+        `
+        <div class="modal-note">
+          ${esc(rules.summary)}
+        </div>
+        `
+        :
+        ""
+      }
+  `;
 
 
-  allSeries.forEach(
-    series => {
+  series.forEach(
+    serie => {
 
-      const title =
-        series.label
+      const label =
+        serie.label
         ||
         (
           Number(
-            series.height
-          ) === 0
+            serie.height
+          ) ===
+          0
           ?
-          'Bord / plot'
+          "Bord / plot"
           :
-          (
-            series.height
-            ?
-            series.height + ' m'
-            :
-            'Série'
-          )
+          serie.height +
+          " m"
         );
 
 
-      html +=
-      `
-      <div class="blazon-detail">
+      html += `
 
-        <h3>
-          ${esc(title)}
-        </h3>
+        <div class="blazon-series">
+
+          <h3>
+            ${esc(label)}
+          </h3>
+
+          <p>
+
+            <strong>
+              Validation :
+            </strong>
+
+            ${esc(serie.minWa)}/10 World Aquatics
+
+            ou
+
+            ${esc(serie.minEah)}/10 EAH Diving
+
+          </p>
       `;
-
-
-      if (
-        series.minWa !== undefined
-        ||
-        series.minEah !== undefined
-      ) {
-
-        html +=
-        `
-        <p>
-
-          <strong>
-            Validation :
-          </strong>
-
-          ${esc(series.minWa ?? '—')}/10
-          World Aquatics
-
-          <strong>
-            OU
-          </strong>
-
-          ${esc(series.minEah ?? '—')}/10
-          EAH Diving
-
-        </p>
-        `;
-
-      }
 
 
       if (
         Array.isArray(
-          series.alternativeHeights
-        )
-        &&
-        series.alternativeHeights.length
+          serie.alternativeHeights
+        ) &&
+        serie.alternativeHeights.length
       ) {
 
-        html +=
-        `
-        <p>
+        html += `
 
-          <strong>
-            Hauteurs alternatives :
-          </strong>
+          <p>
 
-          ${
-            series
-              .alternativeHeights
-              .map(
-                height =>
-                  esc(height)
-                  +
-                  ' m'
-              )
-              .join(
-                ' • '
-              )
-          }
+            <strong>
+              Hauteur alternative :
+            </strong>
 
-        </p>
+            ${
+              serie.alternativeHeights
+                .map(
+                  height =>
+                    esc(height) +
+                    " m"
+                )
+                .join(
+                  " • "
+                )
+            }
+
+          </p>
         `;
 
       }
 
 
       (
-        series.codes ||
+        serie.codes ||
         []
       )
       .forEach(
         code => {
 
           if (
-            series.choiceGroups
-            &&
-            series.choiceGroups[
+            serie.choiceGroups &&
+            serie.choiceGroups[
               code
             ]
           ) {
 
-            html +=
-            `
-            <div class="blazon-code">
+            html += `
 
-              <strong>
-                Au choix :
-              </strong>
+              <div class="choice-group">
 
-              <br>
+                <strong>
+                  Au choix :
+                </strong>
 
-              ${
-                series
-                  .choiceGroups[
+                ${
+                  serie.choiceGroups[
                     code
                   ]
                   .map(
-                    option =>
-                      `${esc(option)} — ${esc(DIVE_NAMES[option] || '')}`
-                  )
-                  .join(
-                    '<br>'
-                  )
-              }
+                    choice => `
 
-            </div>
+                      <div>
+
+                        <b>
+                          ${esc(choice)}
+                        </b>
+
+                        —
+
+                        ${esc(
+                          DIVE_NAMES[
+                            choice
+                          ] || ""
+                        )}
+
+                      </div>
+
+                    `
+                  )
+                  .join("")
+                }
+
+              </div>
             `;
 
           } else {
 
-            html +=
-            `
-            <div class="blazon-code">
+            html += `
 
-              <strong>
-                ${esc(code)}
-              </strong>
+              <p class="dive-rule">
 
-              —
+                <strong>
+                  ${esc(code)}
+                </strong>
 
-              ${esc(DIVE_NAMES[code] || '')}
+                —
 
-            </div>
+                ${esc(
+                  DIVE_NAMES[
+                    code
+                  ] || ""
+                )}
+
+              </p>
             `;
 
           }
@@ -2231,19 +1989,17 @@ function openBlazon(
       );
 
 
-      html +=
-        `
+      html += `
         </div>
-        `;
+      `;
 
     }
   );
 
 
-  html +=
-    `
+  html += `
     </div>
-    `;
+  `;
 
 
   openModal(
@@ -2253,15 +2009,16 @@ function openBlazon(
 }
 
 
-/* =========================================================
+
+/* ============================================================
    TARIFS
-========================================================= */
+============================================================ */
 
 function renderPricing() {
 
   const grid =
     document.getElementById(
-      'pricingGrid'
+      "pricingGrid"
     );
 
 
@@ -2270,108 +2027,93 @@ function renderPricing() {
   }
 
 
-  if (
-    !state.pricing.length
-  ) {
-
-    grid.innerHTML =
-      `
-      <div class="notice">
-        Les tarifs ne sont pas disponibles.
-      </div>
-      `;
-
-    return;
-
-  }
-
-
   grid.innerHTML =
     state.pricing
       .map(
-        item =>
-        `
-        <article
-          class="price-card
-          ${
-            String(
-              item.id ||
-              ''
-            )
-            .toUpperCase()
-            .includes(
-              '50'
-            )
+        pricing => {
+
+          const price =
+            typeof pricing.price ===
+            "number"
             ?
-            'featured'
+            pricing.price +
+            " €"
             :
-            ''
-          }"
-        >
-
-          <small>
-            ${esc(item.id || 'EAH DIVING')}
-          </small>
-
-          <h3>
-            ${esc(item.name || '')}
-          </h3>
+            esc(
+              pricing.price
+            );
 
 
-          <div class="price">
+          return `
 
-            ${
-              typeof item.price ===
-              'number'
-              ?
-              item.price + ' €'
-              :
-              esc(item.price || '')
-            }
+            <article
+              class="price-card ${
+                pricing.id ===
+                "CLUB50"
+                ?
+                "featured"
+                :
+                ""
+              }"
+            >
 
-          </div>
+              <small>
+                ${esc(
+                  pricing.id ||
+                  "EAH"
+                )}
+              </small>
 
+              <h3>
+                ${esc(pricing.name)}
+              </h3>
 
-          <p>
-            ${esc(item.description || '')}
-          </p>
+              <div class="price">
+                ${price}
+              </div>
 
+              <p>
+                ${esc(
+                  pricing.description ||
+                  ""
+                )}
+              </p>
 
-          ${
-            String(
-              item.id ||
-              ''
-            )
-            .toUpperCase()
-            ===
-            'VERIFIED'
-            ?
-            `
-            <span class="badge verified">
-              ✓ EAH VERIFIED
-            </span>
-            `
-            :
-            ''
-          }
+              ${
+                pricing.renewal &&
+                pricing.renewal !==
+                "—"
+                ?
+                `
+                <div class="price-renewal">
+                  Renouvellement :
+                  ${esc(pricing.renewal)} €
+                </div>
+                `
+                :
+                ""
+              }
 
-        </article>
-        `
+            </article>
+          `;
+
+        }
       )
-      .join('');
+      .join("");
 
 }
 
 
-/* =========================================================
+
+/* ============================================================
    SPOTS
-========================================================= */
+============================================================ */
 
 function renderSpots() {
 
   const grid =
     document.getElementById(
-      'spotsGrid'
+      "spotsGrid"
     );
 
 
@@ -2384,15 +2126,13 @@ function renderSpots() {
     !state.spots.length
   ) {
 
-    grid.innerHTML =
-      `
-      <div class="notice">
-        Aucun spot publié pour le moment.
+    grid.innerHTML = `
+      <div class="loading-panel">
+        Les spots seront chargés depuis la base EAH.
       </div>
-      `;
+    `;
 
     return;
-
   }
 
 
@@ -2401,170 +2141,688 @@ function renderSpots() {
       .map(
         spot => {
 
-          const photo =
+          const image =
             driveImage(
-              spot.photoUrl
-              ||
-              spot.imageUrl
-              ||
-              ''
+              spot.photoUrl,
+              1200
             );
 
 
           const heights =
             String(
               spot.heights ||
-              ''
+              ""
             )
             .split(
               /[,;]+/
             )
-            .map(
-              value =>
-                value.trim()
-            )
             .filter(
               Boolean
-            )
-            .map(
-              height =>
-              `
-              <span>
-                ${esc(height)}
-              </span>
-              `
-            )
-            .join('');
+            );
 
 
           return `
-          <article class="spot">
 
+            <article class="spot">
 
-            <div class="spot-picture">
-
-              ${
-                photo
-                ?
-                `
-                <img
-                  src="${esc(photo)}"
-                  alt="${esc(spot.name || 'Spot')}"
-                >
-                `
-                :
-                ''
-              }
-
-            </div>
-
-
-            <div class="spot-content">
-
-              <span class="overline">
-
-                ${esc(
-                  spot.city
-                  ||
-                  spot.country
-                  ||
-                  'SPOT EAH'
-                )}
-
-              </span>
-
-
-              <h2>
-                ${esc(spot.name || '')}
-              </h2>
-
-
-              <div class="tags">
-
-                ${heights}
+              <div class="spot-picture">
 
                 ${
-                  spot.type
+                  image
                   ?
                   `
-                  <span>
-                    ${esc(spot.type)}
-                  </span>
+                  <img
+                    src="${esc(image)}"
+                    alt="${esc(spot.name)}"
+                    loading="lazy"
+                    decoding="async"
+                  >
                   `
                   :
-                  ''
+                  ""
                 }
 
               </div>
 
 
-              ${
-                spot.address
-                ?
-                `
-                <p>
-                  <strong>
-                    ${esc(spot.address)}
-                  </strong>
-                </p>
-                `
-                :
-                ''
-              }
+              <div class="spot-content">
+
+                <span class="overline">
+                  ${esc(
+                    spot.city ||
+                    "SPOT EAH"
+                  )}
+                </span>
+
+                <h2>
+                  ${esc(spot.name)}
+                </h2>
 
 
-              <p>
-                ${esc(spot.description || '')}
-              </p>
+                <div class="tags">
 
+                  ${
+                    heights
+                      .map(
+                        height => `
+                          <span>
+                            ${esc(
+                              height.trim()
+                            )}
+                          </span>
+                        `
+                      )
+                      .join("")
+                  }
 
-              ${
-                spot.warning
-                ?
-                `
-                <div class="warning">
-                  ${esc(spot.warning)}
                 </div>
-                `
-                :
-                ''
-              }
 
 
-              ${
-                spot.mapUrl
-                ?
-                `
-                <a
-                  class="button small secondary"
-                  href="${esc(spot.mapUrl)}"
-                  target="_blank"
-                  rel="noopener"
-                >
-                  Voir le lieu
-                </a>
-                `
-                :
-                ''
-              }
+                ${
+                  spot.address
+                  ?
+                  `
+                  <p>
+                    <strong>
+                      ${esc(
+                        spot.address
+                      )}
+                    </strong>
+                  </p>
+                  `
+                  :
+                  ""
+                }
 
-            </div>
 
-          </article>
+                <p>
+                  ${esc(
+                    spot.description ||
+                    ""
+                  )}
+                </p>
+
+              </div>
+
+            </article>
           `;
 
         }
       )
-      .join('');
+      .join("");
 
 }
 
+
+
+/* ============================================================
+   ACTUALITES
+============================================================ */
+
+function renderActualites() {
+
+  const grid =
+    document.getElementById(
+      "newsGrid"
+    );
+
+
+  if (!grid) {
+    return;
+  }
+
+
+  if (
+    !state.actualites.length
+  ) {
+
+    grid.innerHTML = `
+      <div class="loading-panel">
+        Aucune actualité publiée actuellement.
+      </div>
+    `;
+
+    return;
+  }
+
+
+  grid.innerHTML =
+    state.actualites
+      .map(
+        news => {
+
+          const image =
+            driveImage(
+              news.imageUrl,
+              1200
+            );
+
+
+          return `
+
+            <article
+              class="news-card ${
+                news.featured
+                ?
+                "news-featured"
+                :
+                ""
+              }"
+            >
+
+              ${
+                image
+                ?
+                `
+                <img
+                  class="news-image"
+                  src="${esc(image)}"
+                  alt="${esc(news.title)}"
+                  loading="lazy"
+                  decoding="async"
+                >
+                `
+                :
+                ""
+              }
+
+
+              <div class="news-body">
+
+                <span class="overline">
+                  ${esc(
+                    news.category ||
+                    "EAH DIVING"
+                  )}
+                </span>
+
+                <h3>
+                  ${esc(news.title)}
+                </h3>
+
+                ${
+                  news.date
+                  ?
+                  `
+                  <small class="muted">
+                    ${esc(
+                      fmtDate(
+                        news.date
+                      )
+                    )}
+                  </small>
+                  `
+                  :
+                  ""
+                }
+
+
+                <p>
+                  ${esc(
+                    news.summary ||
+                    news.content ||
+                    ""
+                  )}
+                </p>
+
+
+                ${
+                  news.linkUrl
+                  ?
+                  `
+                  <a
+                    class="button small secondary"
+                    href="${esc(news.linkUrl)}"
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    En savoir plus
+                  </a>
+                  `
+                  :
+                  ""
+                }
+
+              </div>
+
+            </article>
+          `;
+
+        }
+      )
+      .join("");
+
+}
+
+
+
+/* ============================================================
+   GRADING MODALS
+============================================================ */
+
+const gradingSheets = {
+
+  D: {
+
+    title:
+      "Takeoff — Départ",
+
+    image:
+      "grading-takeoff.png",
+
+    text:
+      "Coordination, impulsion, trajectoire, fixation et amplitude des bras."
+
+  },
+
+
+  T: {
+
+    title:
+      "Trick — Phase aérienne",
+
+    image:
+      "grading-trick.png",
+
+    text:
+      "Rotations, contrôle des saltos et vrilles, ligne, ouverture et rythme."
+
+  },
+
+
+  E: {
+
+    title:
+      "Entry — Entrée",
+
+    image:
+      "grading-entry.png",
+
+    text:
+      "Angle, éclaboussures, position des bras, jambes et axe d'entrée."
+
+  }
+
+};
+
+
+document
+  .querySelectorAll(
+    ".grading-card[data-sheet]"
+  )
+  .forEach(
+    card => {
+
+      card.addEventListener(
+        "click",
+        () => {
+
+          const data =
+            gradingSheets[
+              card.dataset.sheet
+            ];
+
+
+          if (!data) {
+            return;
+          }
+
+
+          openModal(`
+
+            <div class="modal-inner">
+
+              <span class="overline">
+                GRILLE EAH
+              </span>
+
+              <h2>
+                ${esc(data.title)}
+              </h2>
+
+              <p>
+                ${esc(data.text)}
+              </p>
+
+              <img
+                class="modal-image"
+                src="${esc(data.image)}"
+                alt="${esc(data.title)}"
+              >
+
+            </div>
+          `);
+
+        }
+      );
+
+    }
+  );
+
+
+
+/* ============================================================
+   POPULATION
+============================================================ */
+
+async function loadPopulation() {
+
+  const code =
+    val(
+      "populationCode"
+    )
+    .trim()
+    .toUpperCase();
+
+
+  const box =
+    document.getElementById(
+      "populationResults"
+    );
+
+
+  if (!box) {
+    return;
+  }
+
+
+  box.innerHTML = `
+    <div class="loading-panel">
+      Recherche…
+    </div>
+  `;
+
+
+  try {
+
+    const response =
+      await getJSON(
+        "population",
+        {
+
+          club:
+            CLUB,
+
+          code:
+            code
+
+        },
+        25000
+      );
+
+
+    if (
+      !response ||
+      !response.ok
+    ) {
+
+      throw new Error(
+        response
+        ?
+        response.error
+        :
+        "Aucune réponse."
+      );
+    }
+
+
+    box.innerHTML = `
+
+      <div class="population-stats">
+
+        <div class="stat-card">
+
+          <strong>
+            ${esc(
+              response.global.people
+            )}
+          </strong>
+
+          <span>
+            Plongeurs EAH
+          </span>
+
+        </div>
+
+
+        <div class="stat-card">
+
+          <strong>
+            ${esc(
+              response.global.count
+            )}
+          </strong>
+
+          <span>
+            Gradings
+          </span>
+
+        </div>
+
+
+        <div class="stat-card">
+
+          <strong>
+            ${
+              response.global.avgEah
+              ??
+              "—"
+            }
+          </strong>
+
+          <span>
+            Moyenne EAH
+          </span>
+
+        </div>
+
+
+        <div class="stat-card">
+
+          <strong>
+            ${
+              response.global.avgWa
+              ??
+              "—"
+            }
+          </strong>
+
+          <span>
+            Moyenne WA
+          </span>
+
+        </div>
+
+      </div>
+    `;
+
+  } catch(error) {
+
+    box.innerHTML = `
+      <div class="notice error">
+        ${esc(error.message)}
+      </div>
+    `;
+
+  }
+
+}
+
+
+document
+  .getElementById(
+    "populationSearchButton"
+  )
+  ?.addEventListener(
+    "click",
+    loadPopulation
+  );
+
+
+
+/* ============================================================
+   CRITERES EVALUATION
+============================================================ */
+
+function renderCriteria() {
+
+  Object.entries(
+    CRITERIA
+  )
+  .forEach(
+    ([prefix,items]) => {
+
+      const container =
+        document.getElementById(
+          "criteria" +
+          prefix
+        );
+
+
+      if (!container) {
+        return;
+      }
+
+
+      container.innerHTML =
+        items
+          .map(
+            (
+              item,
+              index
+            ) => `
+
+              <div>
+
+                <strong>
+                  ${prefix}${index + 1}
+                </strong>
+
+                —
+
+                ${esc(item)}
+
+              </div>
+
+
+              <select
+                id="${prefix}${index + 1}"
+              >
+
+                <option value="2">
+                  2 — Validé
+                </option>
+
+                <option value="1">
+                  1 — Partiel
+                </option>
+
+                <option value="0">
+                  0 — Non validé
+                </option>
+
+                <option value="NA">
+                  N/A
+                </option>
+
+              </select>
+            `
+          )
+          .join("");
+
+    }
+  );
+
+}
+
+
+
+/* ============================================================
+   LISTE PLONGEONS
+============================================================ */
+
+function renderDiveCodes() {
+
+  const datalist =
+    document.getElementById(
+      "diveCodes"
+    );
+
+
+  if (!datalist) {
+    return;
+  }
+
+
+  datalist.innerHTML =
+    Object.entries(
+      DIVE_NAMES
+    )
+    .map(
+      ([code,name]) => `
+
+        <option value="${esc(code)}">
+          ${esc(name)}
+        </option>
+
+      `
+    )
+    .join("");
+
+}
+
+
+document
+  .getElementById(
+    "diveCode"
+  )
+  ?.addEventListener(
+    "input",
+    event => {
+
+      const code =
+        String(
+          event.target.value ||
+          ""
+        )
+        .trim()
+        .toUpperCase();
+
+
+      if (
+        DIVE_NAMES[code]
+      ) {
+
+        const field =
+          document.getElementById(
+            "diveName"
+          );
+
+
+        if (field) {
+
+          field.value =
+            DIVE_NAMES[
+              code
+            ];
+
+        }
+      }
+
+    }
+  );
+
+
+
+/* ============================================================
+   SELECT SPOTS EVALUATION
+============================================================ */
 
 function renderSpotSelect() {
 
   const select =
     document.getElementById(
-      'spotId'
+      "spotId"
     );
 
 
@@ -2575,869 +2833,270 @@ function renderSpotSelect() {
 
   select.innerHTML =
     `
-    <option value="">
-      Autre / non répertorié
-    </option>
+      <option value="">
+        Autre / non répertorié
+      </option>
     `
     +
     state.spots
       .map(
-        spot =>
-        `
-        <option value="${esc(spot.id || '')}">
+        spot => `
 
-          ${esc(spot.name || '')}
+          <option
+            value="${esc(spot.id)}"
+            data-name="${esc(spot.name)}"
+          >
 
-          ${
-            spot.city
-            ?
-            ' — ' + esc(spot.city)
-            :
-            ''
-          }
+            ${esc(spot.name)}
+            —
+            ${esc(spot.city)}
 
-        </option>
+          </option>
         `
       )
-      .join('');
+      .join("");
 
 }
 
 
-function syncSpotName() {
+document
+  .getElementById(
+    "spotId"
+  )
+  ?.addEventListener(
+    "change",
+    event => {
 
-  const id =
-    val(
-      'spotId'
-    );
-
-
-  const spot =
-    state.spots
-      .find(
-        item =>
-          String(
-            item.id
-          )
-          ===
-          String(
-            id
-          )
-      );
+      const option =
+        event.target.options[
+          event.target.selectedIndex
+        ];
 
 
-  if (spot) {
-
-    document
-      .getElementById(
-        'spotName'
-      )
-      .value =
-      spot.name ||
-      '';
-
-  }
-
-}
+      const name =
+        option
+        ?
+        option.dataset.name
+        :
+        "";
 
 
-/* =========================================================
-   ACTUALITES
-========================================================= */
+      if (name) {
 
-function renderNews() {
+        document.getElementById(
+          "spotName"
+        ).value =
+          name;
 
-  const featuredBox =
-    document.getElementById(
-      'newsFeatured'
-    );
+      }
 
-
-  const grid =
-    document.getElementById(
-      'newsGrid'
-    );
-
-
-  if (
-    !featuredBox ||
-    !grid
-  ) {
-    return;
-  }
-
-
-  if (
-    !state.news.length
-  ) {
-
-    featuredBox.innerHTML =
-      '';
-
-
-    grid.innerHTML =
-      `
-      <div class="notice">
-        Aucune actualité publiée pour le moment.
-      </div>
-      `;
-
-    return;
-
-  }
-
-
-  const featured =
-    state.news.find(
-      item =>
-        truthy(
-          item.featured
-        )
-    )
-    ||
-    state.news[0];
-
-
-  const others =
-    state.news.filter(
-      item =>
-        item !==
-        featured
-    );
-
-
-  const image =
-    driveImage(
-      featured.imageUrl ||
-      ''
-    );
-
-
-  featuredBox.innerHTML =
-  `
-  <article class="news-featured">
-
-    ${
-      image
-      ?
-      `
-      <img
-        src="${esc(image)}"
-        alt="${esc(featured.title || '')}"
-      >
-      `
-      :
-      ''
     }
-
-
-    <div class="news-body">
-
-      <div class="news-meta">
-
-        ${esc(featured.category || 'EAH DIVING')}
-
-        ${
-          featured.date
-          ?
-          ' • ' + esc(fmtDate(featured.date))
-          :
-          ''
-        }
-
-      </div>
-
-
-      <h2>
-        ${esc(featured.title || '')}
-      </h2>
-
-
-      <p>
-        ${esc(
-          featured.summary
-          ||
-          featured.content
-          ||
-          ''
-        )}
-      </p>
-
-
-      <button
-        class="button small"
-        type="button"
-        onclick="openNews('${esc(String(featured.id || ''))}')"
-      >
-        Lire
-      </button>
-
-    </div>
-
-  </article>
-  `;
-
-
-  grid.innerHTML =
-    others
-      .map(
-        news => {
-
-          const newsImage =
-            driveImage(
-              news.imageUrl ||
-              ''
-            );
-
-
-          return `
-          <article class="news-card">
-
-            ${
-              newsImage
-              ?
-              `
-              <img
-                src="${esc(newsImage)}"
-                alt="${esc(news.title || '')}"
-              >
-              `
-              :
-              ''
-            }
-
-
-            <div class="news-meta">
-
-              ${esc(news.category || 'EAH')}
-
-              ${
-                news.date
-                ?
-                ' • ' + esc(fmtDate(news.date))
-                :
-                ''
-              }
-
-            </div>
-
-
-            <h3>
-              ${esc(news.title || '')}
-            </h3>
-
-
-            <p>
-              ${esc(news.summary || '')}
-            </p>
-
-
-            <button
-              class="button small secondary"
-              type="button"
-              onclick="openNews('${esc(String(news.id || ''))}')"
-            >
-              Lire
-            </button>
-
-          </article>
-          `;
-
-        }
-      )
-      .join('');
-
-}
-
-
-function openNews(
-  id
-) {
-
-  const news =
-    state.news.find(
-      item =>
-        String(
-          item.id
-        )
-        ===
-        String(
-          id
-        )
-    );
-
-
-  if (!news) {
-    return;
-  }
-
-
-  const image =
-    driveImage(
-      news.imageUrl ||
-      ''
-    );
-
-
-  const content =
-    esc(
-      news.content
-      ||
-      news.summary
-      ||
-      ''
-    )
-    .replace(
-      /\n/g,
-      '<br>'
-    );
-
-
-  openModal(
-    `
-    <div class="modal-inner">
-
-      <span class="overline">
-        ${esc(news.category || 'ACTUALITÉ EAH')}
-      </span>
-
-      <h2>
-        ${esc(news.title || '')}
-      </h2>
-
-      ${
-        news.date
-        ?
-        `
-        <p>
-          ${esc(fmtDate(news.date))}
-        </p>
-        `
-        :
-        ''
-      }
-
-      ${
-        image
-        ?
-        `
-        <img
-          class="modal-image"
-          src="${esc(image)}"
-          alt="${esc(news.title || '')}"
-        >
-        `
-        :
-        ''
-      }
-
-      <p>
-        ${content}
-      </p>
-
-      ${
-        news.videoUrl
-        ?
-        `
-        <p>
-
-          <a
-            class="button small"
-            href="${esc(news.videoUrl)}"
-            target="_blank"
-            rel="noopener"
-          >
-            Voir la vidéo
-          </a>
-
-        </p>
-        `
-        :
-        ''
-      }
-
-      ${
-        news.linkUrl
-        ?
-        `
-        <p>
-
-          <a
-            class="button small secondary"
-            href="${esc(news.linkUrl)}"
-            target="_blank"
-            rel="noopener"
-          >
-            Ouvrir le lien
-          </a>
-
-        </p>
-        `
-        :
-        ''
-      }
-
-    </div>
-    `
   );
 
-}
 
 
-/* =========================================================
-   CONNEXION COACH RAPIDE
-========================================================= */
+/* ============================================================
+   COACH - RESTAURATION RAPIDE SESSION
+============================================================ */
 
-async function coachQuickLogin() {
-
-  const clubName =
-    val("coachClubName")
-    .trim();
-
-
-  const password =
-    val("coachPassword")
-    .trim();
-
-
-  const msg =
-    document.getElementById(
-      "loginMsg"
-    );
-
-
-  if (!clubName || !password) {
-
-    msg.innerHTML = `
-      <div class="notice error">
-        Indique le nom du club et le mot de passe.
-      </div>
-    `;
-
-    return;
-  }
-
-
-  const button =
-    document.querySelector(
-      "#clubAccess .button.submit"
-    );
-
-
-  if (button) {
-
-    button.disabled =
-      true;
-
-    button.textContent =
-      "Connexion…";
-
-  }
-
+function saveCoachSession() {
 
   try {
 
-    const result =
-      await postIframe({
+    sessionStorage.setItem(
+      "EAH_COACH_SESSION",
+      JSON.stringify({
 
-        action:
-          "coachQuickLogin",
+        club:
+          CLUB,
 
-        clubName:
-          clubName,
+        session:
+          state.coachSession,
 
-        password:
-          password
+        coach:
+          state.coach
 
-      });
+      })
+    );
 
-
-    if (!result || !result.ok) {
-
-      throw new Error(
-        result?.error ||
-        "Connexion refusée."
-      );
-
-    }
-
-
-    CLUB =
-      result.club.slug;
-
-
-    state.session =
-      result.session;
-
-
-    state.coach =
-      result.coach;
-
-
-    document
-      .getElementById("clubAccess")
-      ?.classList
-      .add("hidden");
-
-
-    document
-      .getElementById("clubPrivate")
-      ?.classList
-      .remove("hidden");
-
-
-    document
-      .getElementById("evaluationLocked")
-      ?.classList
-      .add("hidden");
-
-
-    document
-      .getElementById("evaluationForm")
-      ?.classList
-      .remove("hidden");
-
-
-    const coachText =
-      (result.coach?.name || "Coach")
-      +
-      " • "
-      +
-      (result.coach?.role || "Coach");
-
-
-    document.getElementById(
-      "coachBadge"
-    ).textContent =
-      coachText;
-
-
-    document.getElementById(
-      "dashboardCoachBadge"
-    ).textContent =
-      coachText;
-
-
-    /*
-      Pas d'appel supplémentaire bloquant.
-    */
-
-    showPage("club");
-
-
-    msg.innerHTML =
-      "";
-
-
-    updateClubUrl();
-
-
-    /*
-      Le dashboard charge ensuite.
-    */
-
-    loadCoachData()
-      .catch(console.error);
-
-
-  } catch(error) {
-
-    msg.innerHTML = `
-      <div class="notice error">
-        ${esc(error.message)}
-      </div>
-    `;
-
-
-  } finally {
-
-    if (button) {
-
-      button.disabled =
-        false;
-
-      button.textContent =
-        "Se connecter";
-
-    }
-
-  }
+  } catch (_) {}
 
 }
 
-/* =========================================================
-   CARTE NFC COACH
-========================================================= */
 
-async function autoCoachNfcLogin(token) {
-
-  if (!CLUB || !token) {
-    return;
-  }
-
-
-  const msg =
-    document.getElementById("loginMsg");
-
-
-  /* On masque immédiatement le formulaire */
-  const access =
-    document.getElementById("clubAccess");
-
-
-  if (access) {
-    access.classList.add("hidden");
-  }
-
-
-  if (msg) {
-
-    msg.innerHTML = `
-      <div class="notice">
-        ⚡ Connexion NFC…
-      </div>
-    `;
-
-  }
-
+function getSavedCoachSession() {
 
   try {
 
-    const result =
-      await postIframe({
-
-        action: "coachLogin",
-
-        club: CLUB,
-
-        email:
-          "nfc+" +
-          CLUB +
-          "@eah.local",
-
-        pin: token
-
-      });
-
-
-    if (!result || !result.ok) {
-
-      throw new Error(
-        result?.error ||
-        "Carte NFC invalide."
-      );
-
-    }
-
-
-    state.session =
-      result.session;
-
-    state.coach =
-      result.coach;
-
-
-    document
-      .getElementById("clubPrivate")
-      ?.classList
-      .remove("hidden");
-
-
-    document
-      .getElementById("evaluationLocked")
-      ?.classList
-      .add("hidden");
-
-
-    document
-      .getElementById("evaluationForm")
-      ?.classList
-      .remove("hidden");
-
-
-    const coachText =
-      (result.coach?.name || "Coach")
-      +
-      " • "
-      +
-      (result.coach?.role || "Coach");
-
-
-    const badge =
-      document.getElementById("coachBadge");
-
-
-    if (badge) {
-      badge.textContent =
-        coachText;
-    }
-
-
-    const dashboardBadge =
-      document.getElementById(
-        "dashboardCoachBadge"
+    const raw =
+      sessionStorage.getItem(
+        "EAH_COACH_SESSION"
       );
 
 
-    if (dashboardBadge) {
-      dashboardBadge.textContent =
-        coachText;
+    if (!raw) {
+      return null;
     }
 
 
-    /*
-      On affiche immédiatement l'espace club.
-      Les données du dashboard chargent ensuite.
-    */
+    return JSON.parse(
+      raw
+    );
 
-    showPage("club");
+  } catch (_) {
 
-
-    if (msg) {
-      msg.innerHTML = "";
-    }
-
-
-    /*
-      Chargement secondaire :
-      cela ne bloque plus l'ouverture de l'espace coach.
-    */
-
-    loadCoachData()
-      .catch(
-        error =>
-          console.error(
-            "Dashboard :",
-            error
-          )
-      );
-
-
-  } catch(error) {
-
-    console.error(error);
-
-
-    if (access) {
-      access.classList.remove("hidden");
-    }
-
-
-    if (msg) {
-
-      msg.innerHTML = `
-        <div class="notice error">
-          Carte NFC Coach invalide ou désactivée.
-        </div>
-      `;
-
-    }
-
+    return null;
   }
 
 }
 
-/* =========================================================
-   FINALISER CONNEXION COACH
-========================================================= */
 
-async function finaliserConnexionCoach_(
-  result
-) {
+function restoreCoachSessionFast() {
 
-  state.session =
-    result.session;
+  if (
+    state.coachSession
+  ) {
+
+    showCoachPrivate();
+
+    return true;
+  }
+
+
+  const saved =
+    getSavedCoachSession();
+
+
+  if (
+    !saved ||
+    !saved.club ||
+    !saved.session
+  ) {
+
+    return false;
+  }
+
+
+  CLUB =
+    saved.club;
+
+
+  state.coachSession =
+    saved.session;
 
 
   state.coach =
-    result.coach;
+    saved.coach ||
+    {
+      name:
+        "Coach",
+      role:
+        "COACH"
+    };
 
 
-  const access =
-    document.getElementById(
-      'clubAccess'
+  showCoachPrivate();
+
+
+  renderCachedCoachData();
+
+
+  /*
+    Vérification en arrière-plan.
+    L'utilisateur entre immédiatement.
+  */
+
+  loadCoachDataFast()
+    .catch(
+      error => {
+
+        console.warn(
+          error
+        );
+
+      }
     );
 
 
-  const privateZone =
-    document.getElementById(
-      'clubPrivate'
+  return true;
+
+}
+
+
+
+/* ============================================================
+   COACH - AFFICHAGE ESPACE PRIVE
+============================================================ */
+
+function showCoachPrivate() {
+
+  document
+    .getElementById(
+      "clubAccess"
+    )
+    ?.classList
+    .add(
+      "hidden"
     );
 
 
-  const locked =
-    document.getElementById(
-      'evaluationLocked'
+  document
+    .getElementById(
+      "coachPrivate"
+    )
+    ?.classList
+    .remove(
+      "hidden"
     );
 
 
-  const form =
-    document.getElementById(
-      'evaluationForm'
+  document
+    .getElementById(
+      "evaluationLocked"
+    )
+    ?.classList
+    .add(
+      "hidden"
     );
 
 
-  if (access) {
-
-    access.classList.add(
-      'hidden'
-    );
-
-  }
-
-
-  if (privateZone) {
-
-    privateZone.classList.remove(
-      'hidden'
-    );
-
-  }
-
-
-  if (locked) {
-
-    locked.classList.add(
-      'hidden'
-    );
-
-  }
-
-
-  if (form) {
-
-    form.classList.remove(
-      'hidden'
-    );
-
-  }
-
-
-  const badge =
-    document.getElementById(
-      'coachBadge'
-    );
-
-
-  const dashboardBadge =
-    document.getElementById(
-      'dashboardCoachBadge'
+  document
+    .getElementById(
+      "evaluationForm"
+    )
+    ?.classList
+    .remove(
+      "hidden"
     );
 
 
   const coachText =
     (
-      result.coach?.name
-      ||
-      'Coach'
+      state.coach
+      &&
+      state.coach.name
+      ?
+      state.coach.name
+      :
+      "Coach"
     )
     +
-    ' • '
+    " • "
     +
     (
-      result.coach?.role
-      ||
-      'Coach'
+      state.coach
+      &&
+      state.coach.role
+      ?
+      state.coach.role
+      :
+      "COACH"
+    );
+
+
+  const badge =
+    document.getElementById(
+      "dashboardCoachBadge"
     );
 
 
@@ -3449,27 +3108,782 @@ async function finaliserConnexionCoach_(
   }
 
 
-  if (dashboardBadge) {
+  const evaluationBadge =
+    document.getElementById(
+      "coachBadge"
+    );
 
-    dashboardBadge.textContent =
+
+  if (evaluationBadge) {
+
+    evaluationBadge.textContent =
       coachText;
 
   }
 
+}
 
-  await loadCoachData();
+
+
+/* ============================================================
+   CONNEXION COACH MANUELLE
+============================================================ */
+
+async function coachQuickLogin() {
+
+  const clubName =
+    val(
+      "coachClubName"
+    )
+    .trim();
+
+
+  const password =
+    val(
+      "coachPassword"
+    )
+    .trim();
+
+
+  const message =
+    document.getElementById(
+      "loginMsg"
+    );
+
+
+  const button =
+    document.getElementById(
+      "coachLoginButton"
+    );
+
+
+  if (
+    !clubName ||
+    !password
+  ) {
+
+    message.innerHTML = `
+      <div class="notice error">
+        Indique le nom du club et le mot de passe.
+      </div>
+    `;
+
+    return;
+  }
+
+
+  setLoadingButton(
+    button,
+    true,
+    "Connexion…",
+    "Accéder à l'espace coach"
+  );
+
+
+  message.innerHTML = `
+    <div class="notice">
+      Ouverture de l'espace club…
+    </div>
+  `;
+
+
+  try {
+
+    const response =
+      await postIframe(
+        {
+
+          action:
+            "coachQuickLogin",
+
+          clubName:
+            clubName,
+
+          password:
+            password
+
+        },
+        30000
+      );
+
+
+    if (
+      !response ||
+      !response.ok
+    ) {
+
+      throw new Error(
+        response
+        ?
+        response.error
+        :
+        "Connexion refusée."
+      );
+    }
+
+
+    CLUB =
+      response.club.slug;
+
+
+    state.coachSession =
+      response.session;
+
+
+    state.coach =
+      response.coach;
+
+
+    saveCoachSession();
+
+
+    try {
+
+      localStorage.setItem(
+        "EAH_LAST_CLUB_NAME",
+        clubName
+      );
+
+    } catch (_) {}
+
+
+    showCoachPrivate();
+
+
+    message.innerHTML =
+      "";
+
+
+    updateClubUrl();
+
+
+    /*
+      Le dashboard se charge APRES ouverture.
+    */
+
+    loadCoachDataFast()
+      .catch(
+        console.warn
+      );
+
+  } catch(error) {
+
+    message.innerHTML = `
+      <div class="notice error">
+        ${esc(error.message)}
+      </div>
+    `;
+
+  } finally {
+
+    setLoadingButton(
+      button,
+      false,
+      "",
+      "Accéder à l'espace coach"
+    );
+
+  }
 
 }
 
 
-/* =========================================================
-   DECONNEXION
-========================================================= */
+
+/* ============================================================
+   NFC COACH
+============================================================ */
+
+async function coachNfcLogin() {
+
+  if (
+    !CLUB ||
+    !COACH_NFC_TOKEN
+  ) {
+
+    return;
+  }
+
+
+  /*
+    Si ce navigateur possède déjà une session pour ce club,
+    ouverture sans aucune attente.
+  */
+
+  const saved =
+    getSavedCoachSession();
+
+
+  if (
+    saved &&
+    saved.club ===
+    CLUB &&
+    saved.session
+  ) {
+
+    state.coachSession =
+      saved.session;
+
+
+    state.coach =
+      saved.coach;
+
+
+    showPage(
+      "club",
+      false
+    );
+
+
+    showCoachPrivate();
+
+
+    renderCachedCoachData();
+
+
+    loadCoachDataFast()
+      .catch(
+        console.warn
+      );
+
+
+    return;
+  }
+
+
+  showPage(
+    "club",
+    false
+  );
+
+
+  const status =
+    document.getElementById(
+      "fastAccessStatus"
+    );
+
+
+  status.classList.remove(
+    "hidden"
+  );
+
+
+  status.innerHTML = `
+    <div class="fast-login">
+      ⚡ Ouverture de l'espace coach…
+    </div>
+  `;
+
+
+  document
+    .getElementById(
+      "clubAccess"
+    )
+    ?.classList
+    .add(
+      "hidden"
+    );
+
+
+  try {
+
+    const response =
+      await postIframe(
+        {
+
+          action:
+            "coachNfcLogin",
+
+          club:
+            CLUB,
+
+          token:
+            COACH_NFC_TOKEN
+
+        },
+        30000
+      );
+
+
+    if (
+      !response ||
+      !response.ok
+    ) {
+
+      throw new Error(
+        response
+        ?
+        response.error
+        :
+        "Carte NFC Coach invalide."
+      );
+    }
+
+
+    state.coachSession =
+      response.session;
+
+
+    state.coach =
+      response.coach;
+
+
+    saveCoachSession();
+
+
+    status.classList.add(
+      "hidden"
+    );
+
+
+    showCoachPrivate();
+
+
+    loadCoachDataFast()
+      .catch(
+        console.warn
+      );
+
+  } catch(error) {
+
+    status.innerHTML = `
+      <div class="notice error">
+        ${esc(error.message)}
+      </div>
+    `;
+
+
+    document
+      .getElementById(
+        "clubAccess"
+      )
+      ?.classList
+      .remove(
+        "hidden"
+      );
+
+  }
+
+}
+
+
+
+/* ============================================================
+   DONNEES COACH CACHEES
+============================================================ */
+
+function renderCachedCoachData() {
+
+  try {
+
+    const dashboardRaw =
+      sessionStorage.getItem(
+        "EAH_DASHBOARD_" +
+        CLUB
+      );
+
+
+    if (dashboardRaw) {
+
+      renderDashboard(
+        JSON.parse(
+          dashboardRaw
+        )
+      );
+
+    }
+
+
+    const diversRaw =
+      sessionStorage.getItem(
+        "EAH_DIVERS_" +
+        CLUB
+      );
+
+
+    if (diversRaw) {
+
+      const divers =
+        JSON.parse(
+          diversRaw
+        );
+
+
+      state.divers =
+        divers.items ||
+        [];
+
+
+      renderDiversSelect();
+
+    }
+
+  } catch (_) {}
+
+}
+
+
+
+/* ============================================================
+   CHARGEMENT COACH PARALLELE
+============================================================ */
+
+async function loadCoachDataFast() {
+
+  if (
+    !CLUB ||
+    !state.coachSession
+  ) {
+
+    return;
+  }
+
+
+  const [
+    diversResponse,
+    dashboardResponse
+  ] =
+    await Promise.all([
+
+      getJSON(
+        "sessionDivers",
+        {
+
+          club:
+            CLUB,
+
+          session:
+            state.coachSession
+
+        },
+        25000
+      ),
+
+      getJSON(
+        "dashboard",
+        {
+
+          club:
+            CLUB,
+
+          session:
+            state.coachSession
+
+        },
+        25000
+      )
+
+    ]);
+
+
+  if (
+    diversResponse &&
+    diversResponse.ok
+  ) {
+
+    state.divers =
+      diversResponse.items ||
+      [];
+
+
+    renderDiversSelect();
+
+
+    try {
+
+      sessionStorage.setItem(
+        "EAH_DIVERS_" +
+        CLUB,
+        JSON.stringify(
+          diversResponse
+        )
+      );
+
+    } catch (_) {}
+
+  }
+
+
+  if (
+    dashboardResponse &&
+    dashboardResponse.ok
+  ) {
+
+    renderDashboard(
+      dashboardResponse
+    );
+
+
+    try {
+
+      sessionStorage.setItem(
+        "EAH_DASHBOARD_" +
+        CLUB,
+        JSON.stringify(
+          dashboardResponse
+        )
+      );
+
+    } catch (_) {}
+
+  }
+
+
+  if (
+    (
+      diversResponse &&
+      !diversResponse.ok &&
+      String(
+        diversResponse.error ||
+        ""
+      )
+      .includes(
+        "Session"
+      )
+    )
+    ||
+    (
+      dashboardResponse &&
+      !dashboardResponse.ok &&
+      String(
+        dashboardResponse.error ||
+        ""
+      )
+      .includes(
+        "Session"
+      )
+    )
+  ) {
+
+    logoutCoach();
+
+    throw new Error(
+      "Session expirée."
+    );
+  }
+
+}
+
+
+
+/* ============================================================
+   DASHBOARD
+============================================================ */
+
+function renderDashboard(response) {
+
+  if (
+    !response ||
+    !response.stats
+  ) {
+
+    return;
+  }
+
+
+  const stats =
+    response.stats;
+
+
+  const box =
+    document.getElementById(
+      "dashboardStats"
+    );
+
+
+  box.innerHTML = [
+
+    [
+      stats.divers,
+      "Plongeurs"
+    ],
+
+    [
+      stats.evaluations,
+      "Grade Reports"
+    ],
+
+    [
+      stats.verified,
+      "EAH Verified"
+    ],
+
+    [
+      stats.blazons,
+      "Blazons obtenus"
+    ]
+
+  ]
+  .map(
+    item => `
+
+      <div class="stat-card">
+
+        <strong>
+          ${esc(item[0])}
+        </strong>
+
+        <span>
+          ${esc(item[1])}
+        </span>
+
+      </div>
+
+    `
+  )
+  .join("");
+
+
+  const recent =
+    document.getElementById(
+      "recentDashboard"
+    );
+
+
+  recent.innerHTML =
+    (
+      response.recent ||
+      []
+    )
+    .map(
+      item => `
+
+        <div class="history-item">
+
+          <span>
+
+            <strong>
+              ${esc(item.code)}
+            </strong>
+
+            <br>
+
+            <small>
+              ${esc(
+                fmtDate(
+                  item.date
+                )
+              )}
+            </small>
+
+          </span>
+
+
+          <span>
+
+            <strong>
+              EAH ${esc(item.eah)}
+            </strong>
+
+            ${
+              item.verified
+              ?
+              `
+              <br>
+              <span class="badge verified">
+                VERIFIED
+              </span>
+              `
+              :
+              ""
+            }
+
+          </span>
+
+        </div>
+
+      `
+    )
+    .join("")
+    ||
+    "Aucune évaluation.";
+
+
+  const groups =
+    document.getElementById(
+      "groupsDashboard"
+    );
+
+
+  groups.innerHTML =
+    Object.entries(
+      response.groups ||
+      {}
+    )
+    .map(
+      ([name,data]) => `
+
+        <div class="history-item">
+
+          <strong>
+            ${esc(name)}
+          </strong>
+
+          <span>
+            ${esc(data.divers)}
+            plongeur(s)
+            •
+            ${esc(data.evaluations)}
+            évaluation(s)
+          </span>
+
+        </div>
+
+      `
+    )
+    .join("")
+    ||
+    "Aucun groupe.";
+
+}
+
+
+
+/* ============================================================
+   DIVERS SELECT
+============================================================ */
+
+function renderDiversSelect() {
+
+  const select =
+    document.getElementById(
+      "eahId"
+    );
+
+
+  if (!select) {
+    return;
+  }
+
+
+  select.innerHTML =
+    state.divers
+      .map(
+        diver => `
+
+          <option value="${esc(diver.id)}">
+
+            ${esc(diver.name)}
+            —
+            ${esc(diver.group || "")}
+
+          </option>
+
+        `
+      )
+      .join("");
+
+}
+
+
+
+/* ============================================================
+   DECONNEXION COACH
+============================================================ */
 
 function logoutCoach() {
 
-  state.session =
-    '';
+  state.coachSession =
+    "";
 
 
   state.coach =
@@ -3480,736 +3894,663 @@ function logoutCoach() {
     [];
 
 
+  try {
+
+    sessionStorage.removeItem(
+      "EAH_COACH_SESSION"
+    );
+
+  } catch (_) {}
+
+
   document
     .getElementById(
-      'clubPrivate'
+      "coachPrivate"
     )
     ?.classList
     .add(
-      'hidden'
+      "hidden"
     );
 
 
   document
     .getElementById(
-      'clubAccess'
+      "clubAccess"
     )
     ?.classList
     .remove(
-      'hidden'
+      "hidden"
     );
 
 
   document
     .getElementById(
-      'evaluationForm'
+      "evaluationForm"
     )
     ?.classList
     .add(
-      'hidden'
+      "hidden"
     );
 
 
   document
     .getElementById(
-      'evaluationLocked'
+      "evaluationLocked"
     )
     ?.classList
     .remove(
-      'hidden'
+      "hidden"
     );
-
-
-  const password =
-    document.getElementById(
-      'coachPassword'
-    );
-
-
-  if (password) {
-
-    password.value =
-      '';
-
-  }
 
 
   showPage(
-    'club'
+    "club"
   );
 
 }
 
 
-/* =========================================================
-   URL CLUB
-========================================================= */
 
-function updateClubUrl() {
+/* ============================================================
+   PROFIL - SESSION NAVIGATEUR
+============================================================ */
 
-  if (!CLUB) {
-    return;
-  }
-
-
-  const url =
-    new URL(
-      window.location.href
-    );
-
-
-  url.searchParams.set(
-    'club',
-    CLUB
-  );
-
-
-  url.searchParams.delete(
-    'coachToken'
-  );
-
-
-  url.hash =
-    'club';
-
-
-  history.replaceState(
-    null,
-    '',
-    url.toString()
-  );
-
-}
-
-
-/* =========================================================
-   DONNEES COACH
-========================================================= */
-
-async function loadCoachData() {
-
-  if (
-    !CLUB ||
-    !state.session
-  ) {
-
-    return;
-
-  }
-
-
-  const [
-    diversResult,
-    dashboardResult
-  ] =
-  await Promise.all([
-
-    getJSON(
-      'sessionDivers',
-      {
-        club:
-          CLUB,
-
-        session:
-          state.session
-      }
-    ),
-
-
-    getJSON(
-      'dashboard',
-      {
-        club:
-          CLUB,
-
-        session:
-          state.session
-      }
-    )
-
-  ]);
-
-
-  if (
-    diversResult.ok
-  ) {
-
-    state.divers =
-      (
-        diversResult.items ||
-        []
-      )
-      .filter(
-        diver =>
-          String(
-            diver.name ||
-            ''
-          )
-          .trim() !==
-          ''
-      );
-
-
-    const select =
-      document.getElementById(
-        'eahId'
-      );
-
-
-    if (select) {
-
-      select.innerHTML =
-        state.divers.length
-        ?
-        state.divers
-          .map(
-            diver =>
-            `
-            <option value="${esc(diver.id)}">
-
-              ${esc(diver.name)}
-
-              ${
-                diver.group
-                ?
-                ' — ' + esc(diver.group)
-                :
-                ''
-              }
-
-            </option>
-            `
-          )
-          .join('')
-        :
-        `
-        <option value="">
-          Aucun plongeur attribué
-        </option>
-        `;
-
-    }
-
-  }
-
-
-  if (
-    dashboardResult.ok
-  ) {
-
-    renderDashboard(
-      dashboardResult
-    );
-
-  }
-
-}
-
-
-/* =========================================================
-   DASHBOARD
-========================================================= */
-
-function renderDashboard(
-  dashboard
+function saveDiverAuth(
+  club,
+  id,
+  token
 ) {
 
-  const stats =
-    dashboard.stats ||
-    {};
+  state.diverAuth = {
+
+    club,
+    id,
+    token
+
+  };
 
 
-  const statsBox =
-    document.getElementById(
-      'dashboardStats'
+  try {
+
+    sessionStorage.setItem(
+      "EAH_DIVER_AUTH",
+      JSON.stringify(
+        state.diverAuth
+      )
     );
 
+  } catch (_) {}
 
-  if (statsBox) {
-
-    statsBox.innerHTML =
-      [
-
-        [
-          'Plongeurs',
-          stats.divers ?? 0
-        ],
-
-        [
-          'Grade Reports',
-          stats.evaluations ?? 0
-        ],
-
-        [
-          'EAH Verified',
-          stats.verified ?? 0
-        ],
-
-        [
-          'Blazons obtenus',
-          stats.blazons ?? 0
-        ]
-
-      ]
-      .map(
-        item =>
-        `
-        <div>
-
-          <strong>
-            ${esc(item[1])}
-          </strong>
-
-          <span>
-            ${esc(item[0])}
-          </span>
-
-        </div>
-        `
-      )
-      .join('');
-
-  }
+}
 
 
-  const recent =
-    document.getElementById(
-      'recentDashboard'
-    );
+function getSavedDiverAuth() {
+
+  try {
+
+    const raw =
+      sessionStorage.getItem(
+        "EAH_DIVER_AUTH"
+      );
 
 
-  if (recent) {
+    return raw
+      ?
+      JSON.parse(raw)
+      :
+      null;
 
-    recent.innerHTML =
-      (
-        dashboard.recent ||
-        []
-      )
-      .map(
-        item =>
-        `
-        <div class="history-item">
+  } catch (_) {
 
-          <span>
-
-            <strong>
-              ${esc(item.code || '')}
-            </strong>
-
-            ${
-              item.date
-              ?
-              ' • ' + esc(fmtDate(item.date))
-              :
-              ''
-            }
-
-            ${
-              item.verified
-              ?
-              `
-              <br>
-
-              <span class="badge verified">
-                EAH VERIFIED
-              </span>
-              `
-              :
-              ''
-            }
-
-          </span>
-
-
-          <span>
-
-            ${
-              item.eah !== undefined
-              ?
-              esc(item.eah) + '/10'
-              :
-              '—'
-            }
-
-          </span>
-
-        </div>
-        `
-      )
-      .join('')
-      ||
-      'Aucune évaluation.';
-
-  }
-
-
-  const groups =
-    document.getElementById(
-      'groupsDashboard'
-    );
-
-
-  if (groups) {
-
-    groups.innerHTML =
-      Object
-        .entries(
-          dashboard.groups ||
-          {}
-        )
-        .map(
-          ([group,value]) =>
-          `
-          <div class="history-item">
-
-            <span>
-              <strong>
-                ${esc(group)}
-              </strong>
-            </span>
-
-            <span>
-
-              ${esc(value.divers ?? 0)}
-              plongeur(s)
-
-              •
-
-              ${esc(value.evaluations ?? 0)}
-              évaluation(s)
-
-            </span>
-
-          </div>
-          `
-        )
-        .join('')
-      ||
-      'Aucun groupe.';
-
+    return null;
   }
 
 }
 
 
-/* =========================================================
-   ACCES PLONGEUR ESPACE CLUB
-========================================================= */
 
-async function diverLoginFromClub() {
+/* ============================================================
+   CONNEXION PLONGEUR SANS NFC
+============================================================ */
 
-  const clubName =
-    val(
-      'diverClubName'
-    )
-    .trim();
-
+async function diverQuickLogin() {
 
   const eahId =
     val(
-      'diverEahId'
+      "diverEahId"
     )
-    .trim();
+    .trim()
+    .toUpperCase();
 
 
-  const token =
+  const pin =
     val(
-      'diverToken'
+      "diverPin"
     )
     .trim();
+
+
+  const message =
+    document.getElementById(
+      "diverLoginMsg"
+    );
+
+
+  const button =
+    document.getElementById(
+      "diverLoginButton"
+    );
 
 
   if (
     !eahId ||
-    !token
+    !pin
   ) {
 
-    alert(
-      'Numéro EAH et token obligatoires.'
-    );
+    message.innerHTML = `
+      <div class="notice error">
+        Numéro EAH et code personnel obligatoires.
+      </div>
+    `;
 
     return;
-
   }
+
+
+  setLoadingButton(
+    button,
+    true,
+    "Ouverture…",
+    "Ouvrir mon profil"
+  );
 
 
   try {
 
-    let slug =
-      CLUB;
+    const response =
+      await postIframe(
+        {
+
+          action:
+            "diverQuickLogin",
+
+          eahId:
+            eahId,
+
+          pin:
+            pin
+
+        },
+        30000
+      );
 
 
     if (
-      clubName
+      !response ||
+      !response.ok
     ) {
 
-      const resolved =
-        await getJSON(
-          'resolveClub',
-          {
-            name:
-              clubName
-          }
-        );
+      throw new Error(
+        response
+        ?
+        response.error
+        :
+        "Connexion impossible."
+      );
+    }
+
+
+    message.innerHTML =
+      "";
+
+
+    openProfile(
+      response.club,
+      response.eahId,
+      response.token
+    );
+
+  } catch(error) {
+
+    message.innerHTML = `
+      <div class="notice error">
+        ${esc(error.message)}
+      </div>
+    `;
+
+  } finally {
+
+    setLoadingButton(
+      button,
+      false,
+      "",
+      "Ouvrir mon profil"
+    );
+
+  }
+
+}
+
+
+
+/* ============================================================
+   OUVERTURE PROFIL NFC OU LOGIN
+============================================================ */
+
+function openProfile(
+  club,
+  id,
+  token
+) {
+
+  CLUB =
+    String(
+      club || ""
+    );
+
+
+  CARD_ID =
+    String(
+      id || ""
+    );
+
+
+  CARD_TOKEN =
+    String(
+      token || ""
+    );
+
+
+  saveDiverAuth(
+    CLUB,
+    CARD_ID,
+    CARD_TOKEN
+  );
+
+
+  const newUrl =
+    window.location.pathname
+    +
+    "?club="
+    +
+    encodeURIComponent(
+      CLUB
+    )
+    +
+    "&id="
+    +
+    encodeURIComponent(
+      CARD_ID
+    )
+    +
+    "&token="
+    +
+    encodeURIComponent(
+      CARD_TOKEN
+    )
+    +
+    "#profil";
+
+
+  history.replaceState(
+    null,
+    "",
+    newUrl
+  );
+
+
+  showPage(
+    "profil",
+    false
+  );
+
+
+  loadProfileSummaryFast();
+
+}
+
+
+
+/* ============================================================
+   RESTAURATION PROFIL
+============================================================ */
+
+function maybeRestoreDiverProfile() {
+
+  if (
+    CARD_ID &&
+    CARD_TOKEN &&
+    CLUB
+  ) {
+
+    if (
+      !state.profile
+    ) {
+
+      loadProfileSummaryFast();
+
+    }
+
+    return;
+  }
+
+
+  const saved =
+    getSavedDiverAuth();
+
+
+  if (
+    saved &&
+    saved.club &&
+    saved.id &&
+    saved.token
+  ) {
+
+    CLUB =
+      saved.club;
+
+
+    CARD_ID =
+      saved.id;
+
+
+    CARD_TOKEN =
+      saved.token;
+
+
+    if (
+      !state.profile
+    ) {
+
+      loadProfileSummaryFast();
+
+    }
+
+  } else {
+
+    document
+      .getElementById(
+        "profileNoAuth"
+      )
+      ?.classList
+      .remove(
+        "hidden"
+      );
+
+  }
+
+}
+
+
+
+/* ============================================================
+   CACHE PROFIL
+============================================================ */
+
+function profileCacheKey() {
+
+  return (
+    "EAH_PROFILE_"
+    +
+    CLUB
+    +
+    "_"
+    +
+    CARD_ID
+  );
+
+}
+
+
+function historyCacheKey() {
+
+  return (
+    "EAH_HISTORY_"
+    +
+    CLUB
+    +
+    "_"
+    +
+    CARD_ID
+  );
+
+}
+
+
+
+/* ============================================================
+   PROFIL RESUME RAPIDE
+============================================================ */
+
+async function loadProfileSummaryFast() {
+
+  if (
+    !CLUB ||
+    !CARD_ID ||
+    !CARD_TOKEN
+  ) {
+
+    return;
+  }
+
+
+  const loading =
+    document.getElementById(
+      "profileLoading"
+    );
+
+
+  const noAuth =
+    document.getElementById(
+      "profileNoAuth"
+    );
+
+
+  const setup =
+    document.getElementById(
+      "profileSetup"
+    );
+
+
+  const view =
+    document.getElementById(
+      "profileView"
+    );
+
+
+  noAuth?.classList.add(
+    "hidden"
+  );
+
+
+  setup?.classList.add(
+    "hidden"
+  );
+
+
+  /*
+    Cache session : affichage instantané lors d'un retour.
+  */
+
+  try {
+
+    const cached =
+      sessionStorage.getItem(
+        profileCacheKey()
+      );
+
+
+    if (cached) {
+
+      const data =
+        JSON.parse(cached);
 
 
       if (
-        !resolved.ok
+        data.profile &&
+        !data.needsSetup
       ) {
 
-        throw new Error(
-          resolved.error
-          ||
-          'Club introuvable.'
+        state.profile =
+          data.profile;
+
+
+        renderProfileSummary(
+          data.profile
+        );
+
+
+        renderCachedProfileHistory();
+
+      } else {
+
+        loading?.classList.remove(
+          "hidden"
         );
 
       }
 
+    } else {
 
-      slug =
-        resolved.club.slug;
-
-    }
-
-
-    if (!slug) {
-
-      throw new Error(
-        'Indique le nom du club.'
+      loading?.classList.remove(
+        "hidden"
       );
 
     }
 
+  } catch (_) {
 
-    CLUB =
-      slug;
-
-
-    document
-      .getElementById(
-        'profileId'
-      )
-      .value =
-      eahId;
-
-
-    document
-      .getElementById(
-        'profileToken'
-      )
-      .value =
-      token;
-
-
-    const url =
-      new URL(
-        window.location.href
-      );
-
-
-    url.searchParams.set(
-      'club',
-      CLUB
+    loading?.classList.remove(
+      "hidden"
     );
-
-
-    url.searchParams.set(
-      'id',
-      eahId
-    );
-
-
-    url.searchParams.set(
-      'token',
-      token
-    );
-
-
-    url.searchParams.delete(
-      'coachToken'
-    );
-
-
-    url.hash =
-      'profil';
-
-
-    history.replaceState(
-      null,
-      '',
-      url.toString()
-    );
-
-
-    showPage(
-      'profil'
-    );
-
-
-    await loadProfileManual();
-
-  } catch(error) {
-
-    alert(
-      error.message
-    );
-
-  }
-
-}
-
-
-/* =========================================================
-   PROFIL
-========================================================= */
-
-async function loadProfileManual() {
-
-  const id =
-    val(
-      'profileId'
-    )
-    .trim();
-
-
-  const token =
-    val(
-      'profileToken'
-    )
-    .trim();
-
-
-  const view =
-    document.getElementById(
-      'profileView'
-    );
-
-
-  if (
-    !id ||
-    !token
-  ) {
-
-    return;
-
-  }
-
-
-  if (!CLUB) {
-
-    if (view) {
-
-      view.classList.remove(
-        'hidden'
-      );
-
-
-      view.innerHTML =
-        `
-        <div class="notice error">
-          Le club n'est pas renseigné.
-        </div>
-        `;
-
-    }
-
-
-    return;
-
-  }
-
-
-  if (view) {
-
-    view.classList.remove(
-      'hidden'
-    );
-
-
-    view.innerHTML =
-      `
-      <div class="notice">
-        Chargement du profil…
-      </div>
-      `;
 
   }
 
 
   try {
 
-    const result =
+    const response =
       await getJSON(
-        'profile',
+        "profileSummary",
         {
+
           club:
             CLUB,
 
-          id,
+          id:
+            CARD_ID,
 
-          token
-        }
+          token:
+            CARD_TOKEN
+
+        },
+        25000
       );
+
+
+    loading?.classList.add(
+      "hidden"
+    );
 
 
     if (
-      !result.ok
+      !response ||
+      !response.ok
     ) {
 
       throw new Error(
-        result.error
-        ||
-        'Profil introuvable.'
+        response
+        ?
+        response.error
+        :
+        "Profil indisponible."
       );
-
     }
 
 
-    renderProfile(
-      result.profile
+    try {
+
+      sessionStorage.setItem(
+        profileCacheKey(),
+        JSON.stringify(
+          response
+        )
+      );
+
+    } catch (_) {}
+
+
+    if (
+      response.needsSetup
+    ) {
+
+      setup?.classList.remove(
+        "hidden"
+      );
+
+
+      view?.classList.add(
+        "hidden"
+      );
+
+
+      return;
+    }
+
+
+    state.profile =
+      response.profile;
+
+
+    renderProfileSummary(
+      response.profile
     );
+
+
+    /*
+      Historique chargé ensuite.
+      L'identité du plongeur est déjà affichée.
+    */
+
+    loadProfileHistoryFast()
+      .catch(
+        console.warn
+      );
 
   } catch(error) {
 
-    if (view) {
+    loading?.classList.add(
+      "hidden"
+    );
 
-      view.innerHTML =
-        `
-        <div class="notice error">
-          ${esc(error.message)}
-        </div>
-        `;
 
-    }
+    view?.classList.remove(
+      "hidden"
+    );
+
+
+    view.innerHTML = `
+      <div class="notice error">
+        ${esc(error.message)}
+      </div>
+    `;
 
   }
 
 }
 
 
-function renderProfile(
-  profile
-) {
 
-  const empty =
-    document.getElementById(
-      'profileEmpty'
-    );
+/* ============================================================
+   RENDU PROFIL RESUME
+============================================================ */
 
+function renderProfileSummary(profile) {
 
   const view =
     document.getElementById(
-      'profileView'
+      "profileView"
     );
-
-
-  if (empty) {
-
-    empty.classList.add(
-      'hidden'
-    );
-
-  }
 
 
   if (!view) {
@@ -4217,127 +4558,336 @@ function renderProfile(
   }
 
 
-  const history =
-    profile.evaluations ||
-    [];
-
-
-  const photo =
-    driveImage(
-      profile.photoUrl ||
-      ''
+  document
+    .getElementById(
+      "profileLoading"
+    )
+    ?.classList
+    .add(
+      "hidden"
     );
 
 
-  view.innerHTML =
-  `
-  <div class="profile-card">
-
-    <div class="profile-head">
-
-      ${
-        photo
-        ?
-        `
-        <img
-          class="avatar"
-          src="${esc(photo)}"
-          alt=""
-        >
-        `
-        :
-        `
-        <div class="avatar">
-        </div>
-        `
-      }
+  document
+    .getElementById(
+      "profileSetup"
+    )
+    ?.classList
+    .add(
+      "hidden"
+    );
 
 
-      <div>
-
-        <span class="badge">
-          ${esc(profile.eahId || '')}
-        </span>
+  view.classList.remove(
+    "hidden"
+  );
 
 
-        <h2>
-
-          ${esc(profile.firstName || '')}
-
-          ${esc(profile.lastName || '')}
-
-        </h2>
+  const image =
+    driveImage(
+      profile.photoUrl,
+      600
+    );
 
 
-        <p>
+  view.innerHTML = `
 
-          ${esc(profile.club || '')}
+    <div class="profile-card">
+
+      <div class="profile-head">
+
+        ${
+          image
+          ?
+          `
+          <img
+            class="profile-avatar"
+            src="${esc(image)}"
+            alt="${esc(
+              profile.firstName
+            )}"
+          >
+          `
+          :
+          `
+          <div class="profile-avatar profile-avatar-empty">
+            EAH
+          </div>
+          `
+        }
+
+
+        <div>
+
+          <span class="badge">
+            ${esc(profile.eahId)}
+          </span>
+
+          <h2>
+
+            ${esc(profile.firstName)}
+            ${esc(profile.lastName)}
+
+          </h2>
+
+          <p class="muted">
+
+            ${esc(profile.club)}
+
+            ${
+              profile.group
+              ?
+              " • " +
+              esc(profile.group)
+              :
+              ""
+            }
+
+          </p>
+
+          <p>
+
+            <strong>
+              Blazon actuel :
+            </strong>
+
+            ${esc(
+              profile.currentBlazon ||
+              "En progression"
+            )}
+
+          </p>
+
 
           ${
-            profile.group
+            profile.cardStatus
             ?
-            ' • ' + esc(profile.group)
+            `
+            <span
+              class="card-status ${cardStatusClass(
+                profile.cardStatus
+              )}"
+            >
+              ${esc(profile.cardStatus)}
+            </span>
+            `
             :
-            ''
+            ""
           }
 
-        </p>
-
-
-        <p>
-
-          <strong>
-            Blazon actuel :
-          </strong>
-
-          ${esc(
-            profile.currentBlazon
-            ||
-            'En progression'
-          )}
-
-        </p>
+        </div>
 
       </div>
 
     </div>
 
-  </div>
+
+    <div class="profile-content-grid">
+
+      <article class="dashboard-card">
+
+        <h3>
+          Progression des blazons
+        </h3>
+
+        <div id="profileBlazons">
+          <div class="mini-loading">
+            Chargement…
+          </div>
+        </div>
+
+      </article>
 
 
-  <div class="examples-grid">
+      <article class="dashboard-card">
+
+        <h3>
+          Historique
+        </h3>
+
+        <div id="profileHistory">
+          <div class="mini-loading">
+            Chargement…
+          </div>
+        </div>
+
+      </article>
+
+    </div>
+  `;
+
+}
 
 
-    <article class="example-panel">
+function cardStatusClass(status) {
 
-      <span class="overline">
-        PROGRESSION
-      </span>
-
-      <h3>
-        Blazons
-      </h3>
+  const value =
+    String(
+      status || ""
+    )
+    .toUpperCase();
 
 
-      ${
-        (
-          profile.blazons ||
-          []
-        )
-        .map(
-          blazon =>
-          `
+  if (
+    value ===
+    "ATTRIBUÉE"
+  ) {
+
+    return "status-assigned";
+  }
+
+
+  if (
+    value ===
+    "PERDUE"
+  ) {
+
+    return "status-lost";
+  }
+
+
+  return "status-free";
+
+}
+
+
+
+/* ============================================================
+   HISTORIQUE PROFIL
+============================================================ */
+
+function renderCachedProfileHistory() {
+
+  try {
+
+    const cached =
+      sessionStorage.getItem(
+        historyCacheKey()
+      );
+
+
+    if (!cached) {
+      return;
+    }
+
+
+    renderProfileHistory(
+      JSON.parse(
+        cached
+      )
+    );
+
+  } catch (_) {}
+
+}
+
+
+async function loadProfileHistoryFast() {
+
+  if (
+    !CLUB ||
+    !CARD_ID ||
+    !CARD_TOKEN
+  ) {
+
+    return;
+  }
+
+
+  const response =
+    await getJSON(
+      "profileHistory",
+      {
+
+        club:
+          CLUB,
+
+        id:
+          CARD_ID,
+
+        token:
+          CARD_TOKEN
+
+      },
+      30000
+    );
+
+
+  if (
+    !response ||
+    !response.ok
+  ) {
+
+    throw new Error(
+      response
+      ?
+      response.error
+      :
+      "Historique indisponible."
+    );
+  }
+
+
+  state.profileHistory =
+    response;
+
+
+  try {
+
+    sessionStorage.setItem(
+      historyCacheKey(),
+      JSON.stringify(
+        response
+      )
+    );
+
+  } catch (_) {}
+
+
+  renderProfileHistory(
+    response
+  );
+
+}
+
+
+function renderProfileHistory(data) {
+
+  const blazons =
+    document.getElementById(
+      "profileBlazons"
+    );
+
+
+  const history =
+    document.getElementById(
+      "profileHistory"
+    );
+
+
+  if (blazons) {
+
+    blazons.innerHTML =
+      (
+        data.blazons ||
+        []
+      )
+      .map(
+        item => `
+
           <div class="history-item">
 
             <span>
-              ${esc(blazon.name || '')}
+              ${esc(item.name)}
             </span>
 
             <span>
 
               ${
-                blazon.status ===
-                'OBTENU'
+                String(
+                  item.status
+                ) ===
+                "OBTENU"
                 ?
                 `
                 <span class="badge">
@@ -4345,75 +4895,64 @@ function renderProfile(
                 </span>
                 `
                 :
-                (
-                  blazon.progress !==
-                  undefined
-                  ?
-                  esc(blazon.progress)
-                  +
-                  ' %'
-                  :
-                  '—'
-                )
+                esc(item.progress) +
+                " %"
               }
 
             </span>
 
           </div>
-          `
-        )
-        .join('')
-        ||
-        'Aucune progression enregistrée.'
-      }
+        `
+      )
+      .join("")
+      ||
+      "Aucune progression enregistrée.";
 
-    </article>
-
-
-    <article class="example-panel">
-
-      <span class="overline">
-        HISTORIQUE
-      </span>
-
-      <h3>
-        Grade Reports
-      </h3>
+  }
 
 
-      ${
-        history
-        .map(
-          item =>
-          `
-          <div class="history-item">
+  if (history) {
+
+    history.innerHTML =
+      (
+        data.evaluations ||
+        []
+      )
+      .map(
+        evaluation => `
+
+          <div class="history-item profile-history-item">
 
             <span>
 
               <strong>
-                ${esc(item.code || '')}
+                ${esc(evaluation.code)}
               </strong>
 
-              ${
-                item.height
-                ?
-                ' — ' + esc(item.height) + ' m'
-                :
-                ''
-              }
+              —
+
+              ${esc(evaluation.height)}
+              m
 
               <br>
 
               <small>
 
-                ${esc(fmtDate(item.date))}
+                ${esc(
+                  fmtDate(
+                    evaluation.date
+                  )
+                )}
 
                 ${
-                  item.spot
+                  evaluation.spot
                   ?
-                  ' • ' + esc(item.spot)
+                  " • " +
+                  esc(
+                    evaluation.spot
+                  )
                   :
-                  ''
+                  ""
                 }
 
               </small>
@@ -4421,315 +4960,329 @@ function renderProfile(
             </span>
 
 
-            <span>
+            <span class="history-score">
 
               <strong>
-
                 EAH
-
-                ${esc(item.eah ?? '—')}/10
-
+                ${esc(evaluation.eah)}/10
               </strong>
 
 
               ${
-                item.verified
+                evaluation.verified
                 ?
                 `
-                <br>
-
                 <span class="badge verified">
                   EAH VERIFIED
                 </span>
                 `
                 :
-                ''
+                ""
               }
 
 
               ${
-                item.reportUrl
+                evaluation.reportUrl
                 ?
                 `
-                <br>
-
                 <a
-                  href="${esc(item.reportUrl)}"
+                  href="${esc(
+                    evaluation.reportUrl
+                  )}"
                   target="_blank"
                   rel="noopener"
                 >
-                  Ouvrir PDF
+                  Grade Report
                 </a>
                 `
                 :
-                ''
+                ""
               }
 
             </span>
 
           </div>
-          `
-        )
-        .join('')
-        ||
-        'Aucune évaluation.'
-      }
 
-    </article>
+        `
+      )
+      .join("")
+      ||
+      "Aucune évaluation.";
 
-  </div>
-  `;
+  }
 
 }
 
 
-/* =========================================================
-   POPULATION
-========================================================= */
 
-async function loadPopulation() {
+/* ============================================================
+   PREMIERE ACTIVATION PROFIL
+============================================================ */
 
-  const code =
-    val(
-      'populationCode'
-    )
-    .trim()
-    .toUpperCase();
+async function setupProfile() {
 
-
-  const box =
+  const message =
     document.getElementById(
-      'populationResults'
+      "setupProfileMsg"
     );
 
 
-  if (!box) {
-    return;
-  }
+  const button =
+    document.getElementById(
+      "setupProfileButton"
+    );
 
 
-  if (!code) {
+  const firstName =
+    val(
+      "setupFirstName"
+    )
+    .trim();
 
-    box.innerHTML =
-      `
-      <div class="notice">
-        Entre un code de plongeon.
+
+  const lastName =
+    val(
+      "setupLastName"
+    )
+    .trim();
+
+
+  const accessPin =
+    val(
+      "setupAccessPin"
+    )
+    .trim();
+
+
+  if (
+    !firstName ||
+    !lastName
+  ) {
+
+    message.innerHTML = `
+      <div class="notice error">
+        Le prénom et le nom sont obligatoires.
       </div>
-      `;
+    `;
 
     return;
-
   }
 
 
-  box.innerHTML =
-    `
-    <div class="notice">
-      Chargement…
-    </div>
+  if (
+    !/^[0-9]{4,8}$/.test(
+      accessPin
+    )
+  ) {
+
+    message.innerHTML = `
+      <div class="notice error">
+        Le code personnel doit contenir 4 à 8 chiffres.
+      </div>
     `;
+
+    return;
+  }
+
+
+  setLoadingButton(
+    button,
+    true,
+    "Activation…",
+    "Activer mon profil"
+  );
 
 
   try {
 
-    const result =
-      await getJSON(
-        'population',
+    const response =
+      await postIframe(
         {
-          club:
-            CLUB || '',
 
-          code
-        }
+          action:
+            "setupProfile",
+
+          club:
+            CLUB,
+
+          eahId:
+            CARD_ID,
+
+          token:
+            CARD_TOKEN,
+
+          firstName:
+            firstName,
+
+          lastName:
+            lastName,
+
+          photoUrl:
+            val(
+              "setupPhotoUrl"
+            ),
+
+          birthDate:
+            val(
+              "setupBirthDate"
+            ),
+
+          sex:
+            val(
+              "setupSex"
+            ),
+
+          group:
+            val(
+              "setupGroup"
+            ),
+
+          accessPin:
+            accessPin
+
+        },
+        45000
       );
 
 
     if (
-      !result.ok
+      !response ||
+      !response.ok
     ) {
 
       throw new Error(
-        result.error
-        ||
-        'Données indisponibles.'
+        response
+        ?
+        response.error
+        :
+        "Activation impossible."
       );
-
     }
 
 
-    const global =
-      result.global ||
-      {};
+    try {
+
+      sessionStorage.removeItem(
+        profileCacheKey()
+      );
+
+    } catch (_) {}
 
 
-    const club =
-      result.club ||
-      {};
+    state.profile =
+      response.profile;
 
 
-    box.innerHTML =
-    `
-    <div class="metrics dashboard-metrics">
-
-      ${
-        result.club
-        ?
-        `
-        <div>
-
-          <strong>
-            ${esc(club.people ?? 0)}
-          </strong>
-
-          <span>
-            plongeurs du club
-          </span>
-
-        </div>
-        `
-        :
-        ''
-      }
+    renderProfileSummary(
+      response.profile
+    );
 
 
-      <div>
-
-        <strong>
-          ${esc(global.people ?? 0)}
-        </strong>
-
-        <span>
-          plongeurs EAH
-        </span>
-
-      </div>
-
-
-      <div>
-
-        <strong>
-          ${esc(global.avgEah ?? '—')}
-        </strong>
-
-        <span>
-          moyenne EAH
-        </span>
-
-      </div>
-
-
-      <div>
-
-        <strong>
-          ${esc(global.avgWa ?? '—')}
-        </strong>
-
-        <span>
-          moyenne World Aquatics
-        </span>
-
-      </div>
-
-    </div>
-    `;
+    loadProfileHistoryFast()
+      .catch(
+        console.warn
+      );
 
   } catch(error) {
 
-    box.innerHTML =
-      `
+    message.innerHTML = `
       <div class="notice error">
         ${esc(error.message)}
       </div>
-      `;
+    `;
+
+  } finally {
+
+    setLoadingButton(
+      button,
+      false,
+      "",
+      "Activer mon profil"
+    );
 
   }
 
 }
 
 
-/* =========================================================
-   EVALUATION COACH
-========================================================= */
 
-async function submitEvaluation(
-  event
-) {
+/* ============================================================
+   EVALUATION
+============================================================ */
+
+async function submitEvaluation(event) {
 
   event.preventDefault();
 
 
   if (
-    !state.session
+    !state.coachSession
   ) {
 
-    alert(
-      'Connexion coach requise.'
+    showPage(
+      "club"
     );
 
     return;
-
   }
 
 
   const button =
     document.getElementById(
-      'submitEvalBtn'
+      "submitEvalBtn"
     );
 
 
   const message =
     document.getElementById(
-      'evaluationMsg'
+      "evaluationMsg"
     );
 
 
-  button.disabled =
-    true;
+  setLoadingButton(
+    button,
+    true,
+    "Génération en cours…",
+    "Générer le Grade Report"
+  );
 
 
-  button.textContent =
-    'Génération en cours…';
-
-
-  message.innerHTML =
-    '';
+  message.innerHTML = `
+    <div class="notice">
+      Génération du Grade Report…
+    </div>
+  `;
 
 
   try {
 
     let videoBase64 =
-      '';
-
+      "";
 
     let videoName =
-      '';
-
+      "";
 
     let videoMime =
-      '';
+      "";
 
 
     const file =
-      document
-        .getElementById(
-          'videoFile'
-        )
-        .files[0];
+      document.getElementById(
+        "videoFile"
+      )
+      .files[0];
 
 
     if (file) {
 
       if (
         file.size >
-        20 *
-        1024 *
-        1024
+        20 * 1024 * 1024
       ) {
 
         throw new Error(
-          'La vidéo dépasse 20 Mo. Utilise une URL.'
+          "La vidéo dépasse 20 Mo. Utilise plutôt un lien vidéo."
         );
-
       }
 
 
@@ -4745,7 +5298,7 @@ async function submitEvaluation(
 
       videoMime =
         file.type ||
-        'video/mp4';
+        "video/mp4";
 
     }
 
@@ -4753,83 +5306,55 @@ async function submitEvaluation(
     const data = {
 
       action:
-        'submitEvaluation',
+        "submitEvaluation",
 
       club:
         CLUB,
 
       session:
-        state.session,
+        state.coachSession,
 
       eahId:
-        val(
-          'eahId'
-        ),
+        val("eahId"),
 
       discipline:
-        val(
-          'discipline'
-        ),
+        val("discipline"),
 
       diveCode:
-        val(
-          'diveCode'
-        ),
+        val("diveCode"),
 
       diveName:
-        val(
-          'diveName'
-        ),
+        val("diveName"),
 
       height:
-        val(
-          'height'
-        ),
+        val("height"),
 
       spotId:
-        val(
-          'spotId'
-        ),
+        val("spotId"),
 
       spotName:
-        val(
-          'spotName'
-        ),
+        val("spotName"),
 
       waScore:
-        val(
-          'waScore'
-        ),
+        val("waScore"),
 
       dd:
-        val(
-          'dd'
-        ),
+        val("dd"),
 
       eahDifficulty:
-        val(
-          'eahDifficulty'
-        ),
+        val("eahDifficulty"),
 
       positive:
-        val(
-          'positive'
-        ),
+        val("positive"),
 
       improve:
-        val(
-          'improve'
-        ),
+        val("improve"),
 
       comment:
-        val(
-          'comment'
-        ),
+        val("comment"),
 
       videoUrl:
-        val(
-          'videoUrl'
-        ),
+        val("videoUrl"),
 
       videoBase64,
 
@@ -4838,37 +5363,33 @@ async function submitEvaluation(
       videoMime,
 
       videoQrAccessible:
-        document
-          .getElementById(
-            'videoQrAccessible'
-          )
-          .checked
+        document.getElementById(
+          "videoQrAccessible"
+        ).checked
 
     };
 
 
     [
-      'D',
-      'T',
-      'E'
+      "D",
+      "T",
+      "E"
     ]
     .forEach(
       prefix => {
 
         for (
-          let index = 1;
-          index <= 5;
-          index++
+          let i = 1;
+          i <= 5;
+          i++
         ) {
 
           data[
-            prefix +
-            index
+            prefix + i
           ] =
-          val(
-            prefix +
-            index
-          );
+            val(
+              prefix + i
+            );
 
         }
 
@@ -4876,28 +5397,30 @@ async function submitEvaluation(
     );
 
 
-    const result =
+    const response =
       await postIframe(
-        data
+        data,
+        150000
       );
 
 
     if (
-      !result ||
-      !result.ok
+      !response ||
+      !response.ok
     ) {
 
       throw new Error(
-        result?.error
-        ||
-        'Erreur lors de la création du Grade Report.'
+        response
+        ?
+        response.error
+        :
+        "Erreur de génération."
       );
-
     }
 
 
-    message.innerHTML =
-      `
+    message.innerHTML = `
+
       <div class="notice success">
 
         <strong>
@@ -4907,34 +5430,35 @@ async function submitEvaluation(
         <br><br>
 
         Takeoff :
-        ${esc(result.takeoff)}/10
+        ${esc(response.takeoff)}/10
 
-        <br>
+        •
 
         Trick :
-        ${esc(result.trick)}/10
+        ${esc(response.trick)}/10
+
+        •
+
+        Entry :
+        ${esc(response.entry)}/10
 
         <br>
 
-        Entry :
-        ${esc(result.entry)}/10
-
-        <br><br>
-
         <strong>
-          Note EAH :
-          ${esc(result.eahScore)}/10
+          EAH :
+          ${esc(response.eahScore)}/10
         </strong>
 
+
         ${
-          result.reportUrl
+          response.reportUrl
           ?
           `
           <br><br>
 
           <a
             class="button small"
-            href="${esc(result.reportUrl)}"
+            href="${esc(response.reportUrl)}"
             target="_blank"
             rel="noopener"
           >
@@ -4942,53 +5466,41 @@ async function submitEvaluation(
           </a>
           `
           :
-          ''
+          ""
         }
 
       </div>
-      `;
+    `;
 
 
-    document
-      .getElementById(
-        'videoFile'
-      )
-      .value =
-      '';
-
-
-    await loadCoachData();
+    loadCoachDataFast()
+      .catch(
+        console.warn
+      );
 
   } catch(error) {
 
-    message.innerHTML =
-      `
+    message.innerHTML = `
       <div class="notice error">
         ${esc(error.message)}
       </div>
-      `;
+    `;
 
   } finally {
 
-    button.disabled =
-      false;
-
-
-    button.textContent =
-      'Générer le Grade Report';
+    setLoadingButton(
+      button,
+      false,
+      "",
+      "Générer le Grade Report"
+    );
 
   }
 
 }
 
 
-/* =========================================================
-   VIDEO
-========================================================= */
-
-function fileToDataUrl(
-  file
-) {
+function fileToDataUrl(file) {
 
   return new Promise(
     (
@@ -5001,13 +5513,9 @@ function fileToDataUrl(
 
 
       reader.onload =
-        () => {
-
-          resolve(
-            reader.result
-          );
-
-        };
+        () => resolve(
+          reader.result
+        );
 
 
       reader.onerror =
@@ -5024,155 +5532,466 @@ function fileToDataUrl(
 }
 
 
-/* =========================================================
-   FORMULAIRE PUBLIC
-========================================================= */
 
-const publicGradingForm =
-  document.getElementById(
-    'publicGradingForm'
+/* ============================================================
+   FORMULAIRE PUBLIC
+============================================================ */
+
+async function submitPublicGrading(event) {
+
+  event.preventDefault();
+
+
+  const button =
+    document.getElementById(
+      "publicSubmitButton"
+    );
+
+
+  const message =
+    document.getElementById(
+      "publicFormMessage"
+    );
+
+
+  setLoadingButton(
+    button,
+    true,
+    "Envoi…",
+    "Envoyer la demande"
   );
 
 
-if (publicGradingForm) {
+  try {
 
-  publicGradingForm.addEventListener(
-    'submit',
-    async event => {
+    const response =
+      await postIframe(
+        {
 
-      event.preventDefault();
+          action:
+            "publicGradingRequest",
 
+          firstName:
+            val(
+              "publicFirstName"
+            ),
 
-      const message =
-        document.getElementById(
-          'publicFormMessage'
-        );
+          lastName:
+            val(
+              "publicLastName"
+            ),
 
+          email:
+            val(
+              "publicEmail"
+            ),
 
-      message.innerHTML =
-        `
-        <div class="notice">
-          Envoi de la demande…
-        </div>
-        `;
+          discipline:
+            val(
+              "publicDiscipline"
+            ),
 
+          dive:
+            val(
+              "publicDive"
+            ),
 
-      try {
+          height:
+            val(
+              "publicHeight"
+            ),
 
-        const result =
-          await postIframe({
+          heightType:
+            val(
+              "publicHeightType"
+            ),
 
-            action:
-              'publicGradingRequest',
+          video:
+            val(
+              "publicVideo"
+            ),
 
-            firstName:
-              val(
-                'publicFirstName'
-              ),
+          message:
+            val(
+              "publicMessage"
+            )
 
-            lastName:
-              val(
-                'publicLastName'
-              ),
-
-            email:
-              val(
-                'publicEmail'
-              ),
-
-            discipline:
-              val(
-                'publicDiscipline'
-              ),
-
-            dive:
-              val(
-                'publicDive'
-              ),
-
-            height:
-              val(
-                'publicHeight'
-              ),
-
-            heightType:
-              val(
-                'publicHeightType'
-              ),
-
-            videoUrl:
-              val(
-                'publicVideo'
-              ),
-
-            message:
-              val(
-                'publicMessage'
-              )
-
-          });
+        },
+        30000
+      );
 
 
-        if (
-          !result ||
-          !result.ok
-        ) {
+    if (
+      !response ||
+      !response.ok
+    ) {
 
-          throw new Error(
-            result?.error
-            ||
-            'Impossible d’enregistrer la demande.'
-          );
-
-        }
-
-
-        message.innerHTML =
-          `
-          <div class="notice success">
-
-            <strong>
-              Demande enregistrée.
-            </strong>
-
-            ${
-              result.requestId
-              ?
-              `
-              <br>
-
-              Référence :
-              ${esc(result.requestId)}
-              `
-              :
-              ''
-            }
-
-          </div>
-          `;
+      throw new Error(
+        response
+        ?
+        response.error
+        :
+        "Envoi impossible."
+      );
+    }
 
 
-        event.target.reset();
+    message.innerHTML = `
+      <div class="notice success">
+        Demande enregistrée.
+      </div>
+    `;
 
-      } catch(error) {
 
-        message.innerHTML =
-          `
-          <div class="notice error">
-            ${esc(error.message)}
-          </div>
-          `;
+    document
+      .getElementById(
+        "publicGradingForm"
+      )
+      .reset();
+
+  } catch(error) {
+
+    message.innerHTML = `
+      <div class="notice error">
+        ${esc(error.message)}
+      </div>
+    `;
+
+  } finally {
+
+    setLoadingButton(
+      button,
+      false,
+      "",
+      "Envoyer la demande"
+    );
+
+  }
+
+}
+
+
+
+/* ============================================================
+   URL CLUB
+============================================================ */
+
+function updateClubUrl() {
+
+  const hash =
+    window.location.hash ||
+    "#club";
+
+
+  const query =
+    CLUB
+    ?
+    "?club="
+      +
+      encodeURIComponent(
+        CLUB
+      )
+    :
+    "";
+
+
+  history.replaceState(
+    null,
+    "",
+    window.location.pathname
+    +
+    query
+    +
+    hash
+  );
+
+}
+
+
+
+/* ============================================================
+   EVENTS
+============================================================ */
+
+document
+  .getElementById(
+    "coachLoginButton"
+  )
+  ?.addEventListener(
+    "click",
+    coachQuickLogin
+  );
+
+
+document
+  .getElementById(
+    "diverLoginButton"
+  )
+  ?.addEventListener(
+    "click",
+    diverQuickLogin
+  );
+
+
+document
+  .getElementById(
+    "setupProfileButton"
+  )
+  ?.addEventListener(
+    "click",
+    setupProfile
+  );
+
+
+document
+  .getElementById(
+    "logoutCoachButton"
+  )
+  ?.addEventListener(
+    "click",
+    logoutCoach
+  );
+
+
+document
+  .getElementById(
+    "openEvaluationButton"
+  )
+  ?.addEventListener(
+    "click",
+    () => {
+
+      showPage(
+        "evaluation"
+      );
+
+    }
+  );
+
+
+document
+  .getElementById(
+    "evaluationForm"
+  )
+  ?.addEventListener(
+    "submit",
+    submitEvaluation
+  );
+
+
+document
+  .getElementById(
+    "publicGradingForm"
+  )
+  ?.addEventListener(
+    "submit",
+    submitPublicGrading
+  );
+
+
+document
+  .getElementById(
+    "coachPassword"
+  )
+  ?.addEventListener(
+    "keydown",
+    event => {
+
+      if (
+        event.key ===
+        "Enter"
+      ) {
+
+        coachQuickLogin();
 
       }
 
     }
   );
 
+
+document
+  .getElementById(
+    "diverPin"
+  )
+  ?.addEventListener(
+    "keydown",
+    event => {
+
+      if (
+        event.key ===
+        "Enter"
+      ) {
+
+        diverQuickLogin();
+
+      }
+
+    }
+  );
+
+
+
+/* ============================================================
+   INITIALISATION
+============================================================ */
+
+function initialiseLastClubName() {
+
+  try {
+
+    const name =
+      localStorage.getItem(
+        "EAH_LAST_CLUB_NAME"
+      );
+
+
+    if (
+      name &&
+      document.getElementById(
+        "coachClubName"
+      )
+    ) {
+
+      document.getElementById(
+        "coachClubName"
+      ).value =
+        name;
+
+    }
+
+  } catch (_) {}
+
 }
 
 
-/* =========================================================
-   LANCEMENT
-========================================================= */
+function initialRoute() {
+
+  /*
+    PRIORITE 1 :
+    scan carte plongeur
+  */
+
+  if (
+    CLUB &&
+    CARD_ID &&
+    CARD_TOKEN
+  ) {
+
+    saveDiverAuth(
+      CLUB,
+      CARD_ID,
+      CARD_TOKEN
+    );
+
+
+    showPage(
+      "profil",
+      false
+    );
+
+
+    /*
+      Lance immédiatement l'appel profil.
+      Le bootstrap public continue en parallèle.
+    */
+
+    loadProfileSummaryFast();
+
+
+    return;
+  }
+
+
+  /*
+    PRIORITE 2 :
+    carte NFC Coach
+  */
+
+  if (
+    CLUB &&
+    COACH_NFC_TOKEN
+  ) {
+
+    coachNfcLogin();
+
+
+    return;
+  }
+
+
+  /*
+    ROUTE CLASSIQUE
+  */
+
+  const hash =
+    window.location.hash
+      .replace(
+        "#",
+        ""
+      );
+
+
+  if (
+    hash &&
+    document.getElementById(
+      hash
+    )
+  ) {
+
+    showPage(
+      hash,
+      false
+    );
+
+  } else {
+
+    showPage(
+      "accueil",
+      false
+    );
+
+  }
+
+}
+
+
+function init() {
+
+  /*
+    Ces éléments sont entièrement locaux :
+    aucun temps réseau.
+  */
+
+  renderCriteria();
+
+  renderDiveCodes();
+
+  initialiseLastClubName();
+
+
+  /*
+    Blazons / prix apparaissent immédiatement.
+    Les informations serveur sont mises à jour ensuite.
+  */
+
+  initialisePublicData();
+
+
+  /*
+    Session coach existante.
+  */
+
+  restoreCoachSessionFast();
+
+
+  /*
+    Gestion NFC / URL / route.
+  */
+
+  initialRoute();
+
+}
+
 
 init();
