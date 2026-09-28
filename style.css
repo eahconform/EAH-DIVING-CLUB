@@ -3907,3 +3907,38 @@ footer {
   }
 
 }
+/* =========================================================
+   PHOTO PROFIL — IMAGE ENTIERE
+========================================================= */
+
+.avatar,
+.profile-avatar,
+.profile-photo,
+.profile-photo img,
+.profile-avatar img {
+
+  object-fit: contain !important;
+
+  object-position: center center !important;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(8,40,76,.85),
+      rgba(2,18,38,.95)
+    );
+
+}
+
+
+/* Si l'image elle-même porte la classe avatar */
+
+img.avatar {
+
+  object-fit: contain !important;
+
+  object-position: center !important;
+
+  padding: 6px;
+
+}
