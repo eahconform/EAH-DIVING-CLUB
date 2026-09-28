@@ -1,20 +1,47 @@
+/* =========================================================
+   EAH DIVING CLUB V3
+========================================================= */
+
+
+/* =========================================================
+   API APPS SCRIPT
+========================================================= */
+
 const API_URL =
 'https://script.google.com/macros/s/AKfycbxW7Va1ry6Qvg_HTcmsbH5lUkpZvtcuf3pFhEynZo2yh3X3anl1igsVw-3buY0l-Hjj0A/exec';
 
 
+/* =========================================================
+   PARAMETRES URL
+========================================================= */
+
 const params =
   new URLSearchParams(
-    location.search
+    window.location.search
   );
 
 
 let CLUB =
   (
-    params.get('club') ||
+    params.get('club')
+    ||
     ''
   )
   .trim();
 
+
+const COACH_TOKEN =
+  (
+    params.get('coachToken')
+    ||
+    ''
+  )
+  .trim();
+
+
+/* =========================================================
+   ETAT
+========================================================= */
 
 const state = {
 
@@ -216,7 +243,7 @@ const DIVE_NAMES = {
 
 
 /* =========================================================
-   CRITÈRES EAH
+   CRITERES EAH
 ========================================================= */
 
 const CRITERIA = {
@@ -310,7 +337,7 @@ const BLAZON_IMAGES = {
   LEGEND:
     'blazon-legend.png',
 
-  'LÉGENDE':
+  LEGENDE:
     'blazon-legend.png',
 
   TITAN:
@@ -329,7 +356,7 @@ const pages =
   );
 
 
-const navLinks =
+const navigationLinks =
   document.querySelectorAll(
     '[data-page]'
   );
@@ -348,33 +375,42 @@ const navigation =
 
 
 function showPage(
-  name
+  pageName
 ) {
 
   pages.forEach(
-    page =>
+    page => {
+
       page.classList.toggle(
         'active',
-        page.id === name
-      )
+        page.id === pageName
+      );
+
+    }
   );
 
 
   if (
-    location.hash !==
-    '#' + name
+    window.location.hash !==
+    '#' + pageName
   ) {
 
     history.replaceState(
       null,
       '',
-      '#' + name
+      window.location.pathname
+      +
+      window.location.search
+      +
+      '#'
+      +
+      pageName
     );
 
   }
 
 
-  scrollTo({
+  window.scrollTo({
 
     top:0,
 
@@ -383,16 +419,18 @@ function showPage(
   });
 
 
-  navigation
-    ?.classList
-    .remove(
+  if (navigation) {
+
+    navigation.classList.remove(
       'open'
     );
+
+  }
 
 }
 
 
-navLinks.forEach(
+navigationLinks.forEach(
   link => {
 
     link.addEventListener(
@@ -431,37 +469,49 @@ document
 
       card.addEventListener(
         'click',
-        () =>
+        () => {
+
           showPage(
             card.dataset.open
-          )
+          );
+
+        }
       );
 
     }
   );
 
 
-mobileMenu
-  ?.addEventListener(
+if (mobileMenu) {
+
+  mobileMenu.addEventListener(
     'click',
-    () =>
+    () => {
+
       navigation.classList.toggle(
         'open'
-      )
+      );
+
+    }
   );
 
+}
 
-addEventListener(
+
+window.addEventListener(
   'hashchange',
   () => {
 
     const hash =
-      location.hash.slice(
-        1
-      );
+      location.hash
+        .replace(
+          '#',
+          ''
+        );
 
 
     if (
+      hash &&
       document.getElementById(
         hash
       )
@@ -497,6 +547,14 @@ function openModal(
   html
 ) {
 
+  if (
+    !siteModal ||
+    !modalContent
+  ) {
+    return;
+  }
+
+
   modalContent.innerHTML =
     html;
 
@@ -520,6 +578,11 @@ function openModal(
 
 
 function closeModal() {
+
+  if (!siteModal) {
+    return;
+  }
+
 
   siteModal.classList.remove(
     'show'
@@ -575,7 +638,7 @@ document.addEventListener(
 
 
 /* =========================================================
-   MODALES GRADING
+   FICHES GRADING
 ========================================================= */
 
 const gradingSheets = {
@@ -617,7 +680,7 @@ const gradingSheets = {
       'grading-entry.png',
 
     intro:
-      "L'Entry analyse la phase terminale et la qualité de l'entrée."
+      "L'Entry analyse la phase terminale de la performance."
 
   }
 
@@ -641,6 +704,11 @@ document
             ];
 
 
+          if (!sheet) {
+            return;
+          }
+
+
           openModal(
             `
             <div class="modal-inner">
@@ -659,15 +727,14 @@ document
 
               <div class="modal-note">
 
-                5 éléments par critère :
+                Chaque critère comporte cinq éléments.
 
-                2 Validé,
+                <br><br>
 
-                1 Partiel,
-
-                0 Non validé
-
-                ou N/A.
+                2 = Validé<br>
+                1 = Partiel<br>
+                0 = Non validé<br>
+                N/A = Non applicable
 
               </div>
 
@@ -676,113 +743,6 @@ document
                 src="${sheet.image}"
                 alt="${sheet.title}"
               >
-
-            </div>
-            `
-          );
-
-        }
-      );
-
-    }
-  );
-
-
-/* =========================================================
-   CONSEILS
-========================================================= */
-
-const adviceTopics = {
-
-  avant:{
-
-    title:
-      'Salto avant',
-
-    description:
-      "Trajectoire, engagement du départ, fluidité de rotation et contrôle de l'entrée."
-
-  },
-
-
-  arriere:{
-
-    title:
-      'Salto arrière',
-
-    description:
-      "Repère de départ, poussée, maîtrise de l'axe et contrôle final."
-
-  },
-
-
-  renverse:{
-
-    title:
-      'Renversé',
-
-    description:
-      'Élévation, retour maîtrisé, verticalité, repères et ouverture.'
-
-  },
-
-
-  retourne:{
-
-    title:
-      'Retourné',
-
-    description:
-      'Engagement précis, lignes et contrôle du corps.'
-
-  },
-
-
-  vrille:{
-
-    title:
-      'Vrille',
-
-    description:
-      "Axe, dissociation, continuité et stabilité de l'exécution."
-
-  }
-
-};
-
-
-document
-  .querySelectorAll(
-    '.advice-card[data-advice]'
-  )
-  .forEach(
-    card => {
-
-      card.addEventListener(
-        'click',
-        () => {
-
-          const topic =
-            adviceTopics[
-              card.dataset.advice
-            ];
-
-
-          openModal(
-            `
-            <div class="modal-inner">
-
-              <span class="overline">
-                CONSEIL EAH
-              </span>
-
-              <h2>
-                ${topic.title}
-              </h2>
-
-              <p>
-                ${topic.description}
-              </p>
 
             </div>
             `
@@ -808,7 +768,7 @@ function esc(
   )
   .replace(
     /[&<>"']/g,
-    char => ({
+    character => ({
 
       '&':'&amp;',
 
@@ -820,7 +780,7 @@ function esc(
 
       "'":'&#39;'
 
-    }[char])
+    }[character])
   );
 
 }
@@ -860,11 +820,17 @@ function val(
   id
 ) {
 
-  return document
-    .getElementById(
+  const element =
+    document.getElementById(
       id
-    )
-    .value;
+    );
+
+
+  return element
+    ?
+    element.value
+    :
+    '';
 
 }
 
@@ -920,17 +886,38 @@ function driveImage(
     );
 
 
-  return match
-  ?
-  (
+  if (!match) {
+    return source;
+  }
+
+
+  return (
     'https://drive.google.com/thumbnail?id='
     +
     match[1]
     +
     '&sz=w1600'
+  );
+
+}
+
+
+function normalizeBlazonName(
+  name
+) {
+
+  return String(
+    name || ''
   )
-  :
-  source;
+  .normalize(
+    'NFD'
+  )
+  .replace(
+    /[\u0300-\u036f]/g,
+    ''
+  )
+  .trim()
+  .toUpperCase();
 
 }
 
@@ -941,11 +928,9 @@ function blazonImage(
 
   return (
     BLAZON_IMAGES[
-      String(
-        name || ''
+      normalizeBlazonName(
+        name
       )
-      .trim()
-      .toUpperCase()
     ]
     ||
     ''
@@ -955,23 +940,23 @@ function blazonImage(
 
 
 /* =========================================================
-   RETOUR APPS SCRIPT IFRAME
+   IFRAME RETOUR
 ========================================================= */
 
 window.addEventListener(
   'message',
   event => {
 
-    const msg =
+    const message =
       event.data ||
       {};
 
 
     if (
-      !msg.requestId
+      !message.requestId
       ||
       !pendingPosts.has(
-        msg.requestId
+        message.requestId
       )
     ) {
 
@@ -982,17 +967,17 @@ window.addEventListener(
 
     const pending =
       pendingPosts.get(
-        msg.requestId
+        message.requestId
       );
 
 
     pendingPosts.delete(
-      msg.requestId
+      message.requestId
     );
 
 
     pending.resolve(
-      msg.data
+      message.data
     );
 
   }
@@ -1000,7 +985,7 @@ window.addEventListener(
 
 
 /* =========================================================
-   APPEL GET JSONP
+   GET JSONP
 ========================================================= */
 
 function getJSON(
@@ -1032,6 +1017,39 @@ function getJSON(
         );
 
 
+      let finished =
+        false;
+
+
+      const cleanup =
+        () => {
+
+          if (finished) {
+            return;
+          }
+
+          finished =
+            true;
+
+
+          try {
+
+            delete window[
+              callback
+            ];
+
+          } catch(e) {}
+
+
+          try {
+
+            script.remove();
+
+          } catch(e) {}
+
+        };
+
+
       window[
         callback
       ] =
@@ -1042,21 +1060,12 @@ function getJSON(
           );
 
 
-          delete window[
-            callback
-          ];
-
-
-          script.remove();
+          cleanup();
 
         };
 
 
-      script.src =
-        API_URL
-        +
-        '?'
-        +
+      const query =
         new URLSearchParams({
 
           action,
@@ -1065,8 +1074,15 @@ function getJSON(
 
           ...extra
 
-        })
-        .toString();
+        });
+
+
+      script.src =
+        API_URL
+        +
+        '?'
+        +
+        query.toString();
 
 
       script.onerror =
@@ -1074,23 +1090,39 @@ function getJSON(
 
           reject(
             new Error(
-              'Impossible de joindre Apps Script'
+              'Impossible de joindre Apps Script.'
             )
           );
 
 
-          delete window[
-            callback
-          ];
-
-
-          script.remove();
+          cleanup();
 
         };
 
 
       document.body.appendChild(
         script
+      );
+
+
+      setTimeout(
+        () => {
+
+          if (!finished) {
+
+            reject(
+              new Error(
+                'Apps Script ne répond pas.'
+              )
+            );
+
+
+            cleanup();
+
+          }
+
+        },
+        30000
       );
 
     }
@@ -1100,7 +1132,7 @@ function getJSON(
 
 
 /* =========================================================
-   APPEL POST IFRAME
+   POST IFRAME
 ========================================================= */
 
 function postIframe(
@@ -1156,31 +1188,36 @@ function postIframe(
         'none';
 
 
+      const payload = {
+
+        ...data,
+
+        transport:
+          'iframe',
+
+        requestId
+
+      };
+
+
       Object
-        .entries({
-
-          ...data,
-
-          transport:
-            'iframe',
-
-          requestId
-
-        })
+        .entries(
+          payload
+        )
         .forEach(
           ([key,value]) => {
 
-            const input =
+            const field =
               document.createElement(
                 'textarea'
               );
 
 
-            input.name =
+            field.name =
               key;
 
 
-            input.value =
+            field.value =
               value == null
               ?
               ''
@@ -1191,7 +1228,7 @@ function postIframe(
 
 
             form.appendChild(
-              input
+              field
             );
 
           }
@@ -1207,8 +1244,11 @@ function postIframe(
 
 
       setTimeout(
-        () =>
-          form.remove(),
+        () => {
+
+          form.remove();
+
+        },
         1000
       );
 
@@ -1229,7 +1269,7 @@ function postIframe(
 
             reject(
               new Error(
-                'Délai dépassé'
+                'Délai dépassé lors de la communication avec Apps Script.'
               )
             );
 
@@ -1256,7 +1296,7 @@ async function init() {
   renderDiveList();
 
 
-  const requests = [
+  const baseRequests = [
 
     getJSON(
       'blazons'
@@ -1304,10 +1344,17 @@ async function init() {
   ];
 
 
+  let clubPromise =
+    Promise.resolve(
+      {
+        ok:false
+      }
+    );
+
+
   if (CLUB) {
 
-    requests.push(
-
+    clubPromise =
       getJSON(
         'club',
         {
@@ -1319,9 +1366,7 @@ async function init() {
         () => ({
           ok:false
         })
-      )
-
-    );
+      );
 
   }
 
@@ -1333,10 +1378,16 @@ async function init() {
     news,
     club
   ] =
-  await Promise.all(
-    requests
-  );
+  await Promise.all([
 
+    ...baseRequests,
+
+    clubPromise
+
+  ]);
+
+
+  /* BLAZONS */
 
   state.blazons =
     blazons?.ok
@@ -1352,6 +1403,8 @@ async function init() {
   renderBlazons();
 
 
+  /* TARIFS */
+
   state.pricing =
     pricing?.ok
     ?
@@ -1366,6 +1419,8 @@ async function init() {
   renderPricing();
 
 
+  /* SPOTS */
+
   state.spots =
     spots?.ok
     ?
@@ -1374,12 +1429,19 @@ async function init() {
       []
     )
     .filter(
-      item =>
-        item.active === undefined
-        ||
-        truthy(
-          item.active
-        )
+      item => {
+
+        return (
+          item.active === undefined
+          ||
+          item.active === ''
+          ||
+          truthy(
+            item.active
+          )
+        );
+
+      }
     )
     :
     [];
@@ -1413,6 +1475,8 @@ async function init() {
   renderSpotSelect();
 
 
+  /* ACTUALITES */
+
   state.news =
     news?.ok
     ?
@@ -1421,12 +1485,19 @@ async function init() {
       []
     )
     .filter(
-      item =>
-        item.active === undefined
-        ||
-        truthy(
-          item.active
-        )
+      item => {
+
+        return (
+          item.active === undefined
+          ||
+          item.active === ''
+          ||
+          truthy(
+            item.active
+          )
+        );
+
+      }
     )
     :
     [];
@@ -1458,6 +1529,8 @@ async function init() {
   renderNews();
 
 
+  /* CLUB PRESENT DANS L'URL */
+
   if (
     CLUB &&
     club?.ok
@@ -1472,39 +1545,30 @@ async function init() {
     );
 
 
-    showClubLogin();
-
-  } else if (CLUB) {
-
-    document
-      .getElementById(
-        'clubOpenMsg'
-      )
-      .innerHTML =
-      `
-      <div class="notice error">
-        Club introuvable.
-      </div>
-      `;
+    prefillClubNames(
+      club.club.name
+    );
 
   }
 
 
-  const id =
+  /* CARTE PLONGEUR */
+
+  const profileId =
     params.get(
       'id'
     );
 
 
-  const token =
+  const profileToken =
     params.get(
       'token'
     );
 
 
   if (
-    id &&
-    token
+    profileId &&
+    profileToken
   ) {
 
     document
@@ -1512,7 +1576,7 @@ async function init() {
         'profileId'
       )
       .value =
-      id;
+      profileId;
 
 
     document
@@ -1520,7 +1584,7 @@ async function init() {
         'profileToken'
       )
       .value =
-      token;
+      profileToken;
 
 
     showPage(
@@ -1528,23 +1592,60 @@ async function init() {
     );
 
 
-    loadProfileManual();
+    await loadProfileManual();
 
-  } else {
 
-    const hash =
-      location.hash.slice(
-        1
+    return;
+
+  }
+
+
+  /* CARTE NFC COACH */
+
+  if (
+    CLUB &&
+    COACH_TOKEN
+  ) {
+
+    showPage(
+      'club'
+    );
+
+
+    await autoCoachNfcLogin(
+      COACH_TOKEN
+    );
+
+
+    return;
+
+  }
+
+
+  /* PAGE STANDARD */
+
+  const hash =
+    location.hash
+      .replace(
+        '#',
+        ''
       );
 
 
-    showPage(
-      document.getElementById(
-        hash
-      )
-      ?
+  if (
+    hash &&
+    document.getElementById(
       hash
-      :
+    )
+  ) {
+
+    showPage(
+      hash
+    );
+
+  } else {
+
+    showPage(
       'accueil'
     );
 
@@ -1554,7 +1655,7 @@ async function init() {
 
 
 /* =========================================================
-   CLUB
+   IDENTITE CLUB
 ========================================================= */
 
 function renderClubIdentity(
@@ -1567,20 +1668,32 @@ function renderClubIdentity(
     );
 
 
+  if (!box) {
+    return;
+  }
+
+
   box.classList.remove(
     'hidden'
   );
 
 
+  const logo =
+    driveImage(
+      club.logoUrl ||
+      ''
+    );
+
+
   box.innerHTML =
   `
   ${
-    club.logoUrl
+    logo
     ?
     `
     <img
-      src="${esc(driveImage(club.logoUrl))}"
-      alt="${esc(club.name)}"
+      src="${esc(logo)}"
+      alt="${esc(club.name || 'Club')}"
     >
     `
     :
@@ -1602,7 +1715,8 @@ function renderClubIdentity(
 
     <p>
       ${esc(
-        club.welcomeText ||
+        club.welcomeText
+        ||
         'EAH fournit l’outil. Le coach reste le coach.'
       )}
     </p>
@@ -1623,155 +1737,59 @@ function renderClubIdentity(
   `;
 
 
-  document
-    .getElementById(
+  const title =
+    document.getElementById(
       'privateClubTitle'
-    )
-    .textContent =
+    );
+
+
+  if (title) {
+
+    title.textContent =
       club.name ||
       'EAH Diving Club';
 
-}
-
-
-function showClubLogin() {
-
-  document
-    .getElementById(
-      'clubSelector'
-    )
-    .classList
-    .add(
-      'hidden'
-    );
-
-
-  document
-    .getElementById(
-      'loginBox'
-    )
-    .classList
-    .remove(
-      'hidden'
-    );
+  }
 
 }
 
 
-async function openClubFromInput() {
+function prefillClubNames(
+  clubName
+) {
 
-  const slug =
-    val(
-      'clubSlugInput'
-    )
-    .trim()
-    .toLowerCase();
-
-
-  const msg =
+  const coach =
     document.getElementById(
-      'clubOpenMsg'
+      'coachClubName'
     );
 
 
-  if (!slug) {
+  const diver =
+    document.getElementById(
+      'diverClubName'
+    );
 
-    msg.innerHTML =
-      `
-      <div class="notice error">
-        Entre le code du club.
-      </div>
-      `;
 
-    return;
+  if (
+    coach &&
+    !coach.value
+  ) {
+
+    coach.value =
+      clubName ||
+      '';
 
   }
 
 
-  msg.innerHTML =
-    `
-    <div class="notice">
-      Chargement…
-    </div>
-    `;
+  if (
+    diver &&
+    !diver.value
+  ) {
 
-
-  try {
-
-    const result =
-      await getJSON(
-        'club',
-        {
-          club:
-            slug
-        }
-      );
-
-
-    if (
-      !result.ok
-    ) {
-
-      throw new Error(
-        result.error ||
-        'Club introuvable'
-      );
-
-    }
-
-
-    CLUB =
-      slug;
-
-
-    state.club =
-      result.club;
-
-
-    const url =
-      new URL(
-        location.href
-      );
-
-
-    url.searchParams.set(
-      'club',
-      slug
-    );
-
-
-    history.replaceState(
-      null,
-      '',
-      url.pathname
-      +
-      '?'
-      +
-      url.searchParams.toString()
-      +
-      '#club'
-    );
-
-
-    renderClubIdentity(
-      result.club
-    );
-
-
-    showClubLogin();
-
-
-    msg.innerHTML =
+    diver.value =
+      clubName ||
       '';
-
-  } catch(error) {
-
-    msg.innerHTML =
-      `
-      <div class="notice error">
-        ${esc(error.message)}
-      </div>
-      `;
 
   }
 
@@ -1779,7 +1797,7 @@ async function openClubFromInput() {
 
 
 /* =========================================================
-   CRITÈRES
+   CRITERES
 ========================================================= */
 
 function renderCriteria() {
@@ -1791,56 +1809,63 @@ function renderCriteria() {
     .forEach(
       ([prefix,items]) => {
 
-        document
-          .getElementById(
+        const container =
+          document.getElementById(
             'criteria' +
             prefix
-          )
-          .innerHTML =
+          );
+
+
+        if (!container) {
+          return;
+        }
+
+
+        container.innerHTML =
           items
-            .map(
-              (
-                text,
-                index
-              ) =>
-              `
-              <div>
+          .map(
+            (
+              text,
+              index
+            ) =>
+            `
+            <div>
 
-                <strong>
-                  ${prefix}${index + 1}
-                </strong>
+              <strong>
+                ${prefix}${index + 1}
+              </strong>
 
-                —
+              —
 
-                ${esc(text)}
+              ${esc(text)}
 
-              </div>
+            </div>
 
 
-              <select
-                id="${prefix}${index + 1}"
-              >
+            <select
+              id="${prefix}${index + 1}"
+            >
 
-                <option value="2">
-                  2 — Validé
-                </option>
+              <option value="2">
+                2 — Validé
+              </option>
 
-                <option value="1">
-                  1 — Partiel
-                </option>
+              <option value="1">
+                1 — Partiel
+              </option>
 
-                <option value="0">
-                  0 — Non validé
-                </option>
+              <option value="0">
+                0 — Non validé
+              </option>
 
-                <option value="NA">
-                  N/A
-                </option>
+              <option value="NA">
+                N/A
+              </option>
 
-              </select>
-              `
-            )
-            .join('');
+            </select>
+            `
+          )
+          .join('');
 
       }
     );
@@ -1849,16 +1874,23 @@ function renderCriteria() {
 
 
 /* =========================================================
-   LISTE DES PLONGEONS
+   PLONGEONS
 ========================================================= */
 
 function renderDiveList() {
 
-  document
-    .getElementById(
+  const list =
+    document.getElementById(
       'diveCodes'
-    )
-    .innerHTML =
+    );
+
+
+  if (!list) {
+    return;
+  }
+
+
+  list.innerHTML =
     Object
       .entries(
         DIVE_NAMES
@@ -1882,6 +1914,7 @@ function fillDiveName() {
     val(
       'diveCode'
     )
+    .trim()
     .toUpperCase();
 
 
@@ -1906,7 +1939,7 @@ function fillDiveName() {
 
 
 /* =========================================================
-   BLAZONS V2
+   BLAZONS
 ========================================================= */
 
 function renderBlazons() {
@@ -1917,6 +1950,11 @@ function renderBlazons() {
     );
 
 
+  if (!grid) {
+    return;
+  }
+
+
   if (
     !state.blazons.length
   ) {
@@ -1924,7 +1962,7 @@ function renderBlazons() {
     grid.innerHTML =
       `
       <div class="notice">
-        Aucun blazon reçu depuis Apps Script.
+        Aucun blazon disponible pour le moment.
       </div>
       `;
 
@@ -1952,15 +1990,6 @@ function renderBlazons() {
             );
 
 
-          const summary =
-            (
-              blazon.rules &&
-              blazon.rules.summary
-            )
-            ||
-            'Référentiel V2 EAH Diving';
-
-
           return `
           <article
             class="blazon-card"
@@ -1985,10 +2014,6 @@ function renderBlazons() {
               ${esc(blazon.name)}
             </h3>
 
-            <p>
-              ${esc(summary)}
-            </p>
-
           </article>
           `;
 
@@ -2009,6 +2034,11 @@ function openBlazon(
     ];
 
 
+  if (!blazon) {
+    return;
+  }
+
+
   const rules =
     blazon.rules ||
     {};
@@ -2019,20 +2049,27 @@ function openBlazon(
   <div class="modal-inner">
 
     <span class="overline">
-      RÉFÉRENTIEL V2
+      RÉFÉRENTIEL EAH DIVING V2
     </span>
 
     <h2>
       ${esc(blazon.name)}
     </h2>
-
-    <div class="modal-note">
-      ${esc(
-        rules.summary ||
-        ''
-      )}
-    </div>
   `;
+
+
+  if (
+    rules.summary
+  ) {
+
+    html +=
+      `
+      <div class="modal-note">
+        ${esc(rules.summary)}
+      </div>
+      `;
+
+  }
 
 
   const allSeries = [
@@ -2055,25 +2092,49 @@ function openBlazon(
   ];
 
 
+  if (
+    !allSeries.length
+  ) {
+
+    html +=
+      `
+      <div class="notice">
+        Conditions non disponibles.
+      </div>
+      `;
+
+  }
+
+
   allSeries.forEach(
     series => {
 
+      const title =
+        series.label
+        ||
+        (
+          Number(
+            series.height
+          ) === 0
+          ?
+          'Bord / plot'
+          :
+          (
+            series.height
+            ?
+            series.height + ' m'
+            :
+            'Série'
+          )
+        );
+
+
       html +=
       `
-      <div class="modal-note">
+      <div class="blazon-detail">
 
         <h3>
-          ${esc(
-            series.label
-            ||
-            (
-              series.height === 0
-              ?
-              'Bord / plot'
-              :
-              series.height + ' m'
-            )
-          )}
+          ${esc(title)}
         </h3>
       `;
 
@@ -2095,7 +2156,9 @@ function openBlazon(
           ${esc(series.minWa ?? '—')}/10
           World Aquatics
 
-          OU
+          <strong>
+            OU
+          </strong>
 
           ${esc(series.minEah ?? '—')}/10
           EAH Diving
@@ -2107,7 +2170,11 @@ function openBlazon(
 
 
       if (
-        series.alternativeHeights
+        Array.isArray(
+          series.alternativeHeights
+        )
+        &&
+        series.alternativeHeights.length
       ) {
 
         html +=
@@ -2155,7 +2222,7 @@ function openBlazon(
 
             html +=
             `
-            <p>
+            <div class="blazon-code">
 
               <strong>
                 Au choix :
@@ -2177,14 +2244,14 @@ function openBlazon(
                   )
               }
 
-            </p>
+            </div>
             `;
 
           } else {
 
             html +=
             `
-            <p>
+            <div class="blazon-code">
 
               <strong>
                 ${esc(code)}
@@ -2194,7 +2261,7 @@ function openBlazon(
 
               ${esc(DIVE_NAMES[code] || '')}
 
-            </p>
+            </div>
             `;
 
           }
@@ -2212,9 +2279,14 @@ function openBlazon(
   );
 
 
+  html +=
+    `
+    </div>
+    `;
+
+
   openModal(
-    html +
-    '</div>'
+    html
   );
 
 }
@@ -2232,6 +2304,11 @@ function renderPricing() {
     );
 
 
+  if (!grid) {
+    return;
+  }
+
+
   if (
     !state.pricing.length
   ) {
@@ -2239,7 +2316,7 @@ function renderPricing() {
     grid.innerHTML =
       `
       <div class="notice">
-        Tarifs non disponibles.
+        Les tarifs ne sont pas disponibles.
       </div>
       `;
 
@@ -2256,8 +2333,14 @@ function renderPricing() {
         <article
           class="price-card
           ${
-            item.id ===
-            'CLUB50'
+            String(
+              item.id ||
+              ''
+            )
+            .toUpperCase()
+            .includes(
+              '50'
+            )
             ?
             'featured'
             :
@@ -2266,12 +2349,13 @@ function renderPricing() {
         >
 
           <small>
-            ${esc(item.id || 'EAH')}
+            ${esc(item.id || 'EAH DIVING')}
           </small>
 
           <h3>
-            ${esc(item.name)}
+            ${esc(item.name || '')}
           </h3>
+
 
           <div class="price">
 
@@ -2279,20 +2363,26 @@ function renderPricing() {
               typeof item.price ===
               'number'
               ?
-              item.price +
-              ' €'
+              item.price + ' €'
               :
-              esc(item.price)
+              esc(item.price || '')
             }
 
           </div>
+
 
           <p>
             ${esc(item.description || '')}
           </p>
 
+
           ${
-            item.id ===
+            String(
+              item.id ||
+              ''
+            )
+            .toUpperCase()
+            ===
             'VERIFIED'
             ?
             `
@@ -2322,6 +2412,11 @@ function renderSpots() {
     document.getElementById(
       'spotsGrid'
     );
+
+
+  if (!grid) {
+    return;
+  }
 
 
   if (
@@ -2363,6 +2458,10 @@ function renderSpots() {
             .split(
               /[,;]+/
             )
+            .map(
+              value =>
+                value.trim()
+            )
             .filter(
               Boolean
             )
@@ -2370,7 +2469,7 @@ function renderSpots() {
               height =>
               `
               <span>
-                ${esc(height.trim())}
+                ${esc(height)}
               </span>
               `
             )
@@ -2380,6 +2479,7 @@ function renderSpots() {
           return `
           <article class="spot">
 
+
             <div class="spot-picture">
 
               ${
@@ -2388,7 +2488,7 @@ function renderSpots() {
                 `
                 <img
                   src="${esc(photo)}"
-                  alt="${esc(spot.name)}"
+                  alt="${esc(spot.name || 'Spot')}"
                 >
                 `
                 :
@@ -2401,6 +2501,7 @@ function renderSpots() {
             <div class="spot-content">
 
               <span class="overline">
+
                 ${esc(
                   spot.city
                   ||
@@ -2408,10 +2509,12 @@ function renderSpots() {
                   ||
                   'SPOT EAH'
                 )}
+
               </span>
 
+
               <h2>
-                ${esc(spot.name)}
+                ${esc(spot.name || '')}
               </h2>
 
 
@@ -2439,7 +2542,9 @@ function renderSpots() {
                 ?
                 `
                 <p>
-                  ${esc(spot.address)}
+                  <strong>
+                    ${esc(spot.address)}
+                  </strong>
                 </p>
                 `
                 :
@@ -2475,7 +2580,7 @@ function renderSpots() {
                   target="_blank"
                   rel="noopener"
                 >
-                  Voir la carte
+                  Voir le lieu
                 </a>
                 `
                 :
@@ -2496,11 +2601,18 @@ function renderSpots() {
 
 function renderSpotSelect() {
 
-  document
-    .getElementById(
+  const select =
+    document.getElementById(
       'spotId'
-    )
-    .innerHTML =
+    );
+
+
+  if (!select) {
+    return;
+  }
+
+
+  select.innerHTML =
     `
     <option value="">
       Autre / non répertorié
@@ -2511,13 +2623,17 @@ function renderSpotSelect() {
       .map(
         spot =>
         `
-        <option value="${esc(spot.id)}">
+        <option value="${esc(spot.id || '')}">
 
-          ${esc(spot.name)}
+          ${esc(spot.name || '')}
 
-          —
-
-          ${esc(spot.city || '')}
+          ${
+            spot.city
+            ?
+            ' — ' + esc(spot.city)
+            :
+            ''
+          }
 
         </option>
         `
@@ -2539,9 +2655,13 @@ function syncSpotName() {
     state.spots
       .find(
         item =>
-          String(item.id)
+          String(
+            item.id
+          )
           ===
-          String(id)
+          String(
+            id
+          )
       );
 
 
@@ -2552,7 +2672,8 @@ function syncSpotName() {
         'spotName'
       )
       .value =
-      spot.name;
+      spot.name ||
+      '';
 
   }
 
@@ -2560,7 +2681,7 @@ function syncSpotName() {
 
 
 /* =========================================================
-   ACTUALITÉS
+   ACTUALITES
 ========================================================= */
 
 function renderNews() {
@@ -2575,6 +2696,14 @@ function renderNews() {
     document.getElementById(
       'newsGrid'
     );
+
+
+  if (
+    !featuredBox ||
+    !grid
+  ) {
+    return;
+  }
 
 
   if (
@@ -2598,26 +2727,22 @@ function renderNews() {
 
 
   const featured =
-    state.news
-      .find(
-        item =>
-          truthy(
-            item.featured
-          )
-      )
+    state.news.find(
+      item =>
+        truthy(
+          item.featured
+        )
+    )
     ||
-    state.news[
-      0
-    ];
+    state.news[0];
 
 
   const others =
-    state.news
-      .filter(
-        item =>
-          item !==
-          featured
-      );
+    state.news.filter(
+      item =>
+        item !==
+        featured
+    );
 
 
   const image =
@@ -2637,7 +2762,7 @@ function renderNews() {
       `
       <img
         src="${esc(image)}"
-        alt="${esc(featured.title)}"
+        alt="${esc(featured.title || '')}"
       >
       `
       :
@@ -2651,15 +2776,19 @@ function renderNews() {
 
         ${esc(featured.category || 'EAH DIVING')}
 
-        •
-
-        ${esc(fmtDate(featured.date))}
+        ${
+          featured.date
+          ?
+          ' • ' + esc(fmtDate(featured.date))
+          :
+          ''
+        }
 
       </div>
 
 
       <h2>
-        ${esc(featured.title)}
+        ${esc(featured.title || '')}
       </h2>
 
 
@@ -2677,7 +2806,7 @@ function renderNews() {
       <button
         class="button small"
         type="button"
-        onclick="openNews('${esc(String(featured.id))}')"
+        onclick="openNews('${esc(String(featured.id || ''))}')"
       >
         Lire
       </button>
@@ -2709,7 +2838,7 @@ function renderNews() {
               `
               <img
                 src="${esc(newsImage)}"
-                alt="${esc(news.title)}"
+                alt="${esc(news.title || '')}"
               >
               `
               :
@@ -2721,15 +2850,19 @@ function renderNews() {
 
               ${esc(news.category || 'EAH')}
 
-              •
-
-              ${esc(fmtDate(news.date))}
+              ${
+                news.date
+                ?
+                ' • ' + esc(fmtDate(news.date))
+                :
+                ''
+              }
 
             </div>
 
 
             <h3>
-              ${esc(news.title)}
+              ${esc(news.title || '')}
             </h3>
 
 
@@ -2741,7 +2874,7 @@ function renderNews() {
             <button
               class="button small secondary"
               type="button"
-              onclick="openNews('${esc(String(news.id))}')"
+              onclick="openNews('${esc(String(news.id || ''))}')"
             >
               Lire
             </button>
@@ -2761,13 +2894,16 @@ function openNews(
 ) {
 
   const news =
-    state.news
-      .find(
-        item =>
-          String(item.id)
-          ===
-          String(id)
-      );
+    state.news.find(
+      item =>
+        String(
+          item.id
+        )
+        ===
+        String(
+          id
+        )
+    );
 
 
   if (!news) {
@@ -2782,6 +2918,20 @@ function openNews(
     );
 
 
+  const content =
+    esc(
+      news.content
+      ||
+      news.summary
+      ||
+      ''
+    )
+    .replace(
+      /\n/g,
+      '<br>'
+    );
+
+
   openModal(
     `
     <div class="modal-inner">
@@ -2791,12 +2941,20 @@ function openNews(
       </span>
 
       <h2>
-        ${esc(news.title)}
+        ${esc(news.title || '')}
       </h2>
 
-      <p>
-        ${esc(fmtDate(news.date))}
-      </p>
+      ${
+        news.date
+        ?
+        `
+        <p>
+          ${esc(fmtDate(news.date))}
+        </p>
+        `
+        :
+        ''
+      }
 
       ${
         image
@@ -2805,32 +2963,16 @@ function openNews(
         <img
           class="modal-image"
           src="${esc(image)}"
-          alt="${esc(news.title)}"
+          alt="${esc(news.title || '')}"
         >
         `
         :
         ''
       }
 
-
       <p>
-
-        ${
-          esc(
-            news.content
-            ||
-            news.summary
-            ||
-            ''
-          )
-          .replace(
-            /\n/g,
-            '<br>'
-          )
-        }
-
+        ${content}
       </p>
-
 
       ${
         news.videoUrl
@@ -2852,7 +2994,6 @@ function openNews(
         :
         ''
       }
-
 
       ${
         news.linkUrl
@@ -2883,10 +3024,10 @@ function openNews(
 
 
 /* =========================================================
-   CONNEXION COACH
+   CONNEXION COACH RAPIDE
 ========================================================= */
 
-async function coachLogin() {
+async function coachQuickLogin() {
 
   const msg =
     document.getElementById(
@@ -2894,12 +3035,34 @@ async function coachLogin() {
     );
 
 
-  if (!CLUB) {
+  if (!msg) {
+    return;
+  }
+
+
+  const clubName =
+    val(
+      'coachClubName'
+    )
+    .trim();
+
+
+  const password =
+    val(
+      'coachPassword'
+    )
+    .trim();
+
+
+  if (
+    !clubName ||
+    !password
+  ) {
 
     msg.innerHTML =
       `
       <div class="notice error">
-        Ouvre d’abord un club.
+        Nom du club et mot de passe obligatoires.
       </div>
       `;
 
@@ -2922,97 +3085,85 @@ async function coachLogin() {
       await postIframe({
 
         action:
-          'coachLogin',
+          'coachQuickLogin',
 
-        club:
-          CLUB,
+        clubName,
 
-        email:
-          val(
-            'coachEmail'
-          ),
-
-        pin:
-          val(
-            'coachPin'
-          )
+        password
 
       });
 
 
     if (
+      !result ||
       !result.ok
     ) {
 
       throw new Error(
-        result.error ||
-        'Connexion refusée'
+        result?.error
+        ||
+        'Connexion refusée.'
       );
 
     }
 
 
-    state.session =
-      result.session;
+    if (
+      result.club?.slug
+    ) {
+
+      CLUB =
+        result.club.slug;
+
+    }
 
 
-    state.coach =
-      result.coach;
+    if (
+      result.club
+    ) {
+
+      const clubResult =
+        await getJSON(
+          'club',
+          {
+            club:
+              CLUB
+          }
+        );
 
 
-    document
-      .getElementById(
-        'loginBox'
-      )
-      .classList
-      .add(
-        'hidden'
-      );
+      if (
+        clubResult.ok
+      ) {
+
+        state.club =
+          clubResult.club;
 
 
-    document
-      .getElementById(
-        'clubPrivate'
-      )
-      .classList
-      .remove(
-        'hidden'
-      );
+        renderClubIdentity(
+          clubResult.club
+        );
 
 
-    document
-      .getElementById(
-        'evaluationLocked'
-      )
-      .classList
-      .add(
-        'hidden'
-      );
+        prefillClubNames(
+          clubResult.club.name
+        );
+
+      }
+
+    }
 
 
-    document
-      .getElementById(
-        'evaluationForm'
-      )
-      .classList
-      .remove(
-        'hidden'
-      );
+    updateClubUrl();
 
 
-    document
-      .getElementById(
-        'coachBadge'
-      )
-      .textContent =
-      result.coach.name
-      +
-      ' • '
-      +
-      result.coach.role;
+    msg.innerHTML =
+      '';
 
 
-    await loadCoachData();
+    await finaliserConnexionCoach_(
+      result
+    );
 
   } catch(error) {
 
@@ -3029,14 +3180,384 @@ async function coachLogin() {
 
 
 /* =========================================================
-   DONNÉES COACH
+   CARTE NFC COACH
+========================================================= */
+
+async function autoCoachNfcLogin(
+  token
+) {
+
+  const msg =
+    document.getElementById(
+      'loginMsg'
+    );
+
+
+  if (
+    !CLUB ||
+    !token
+  ) {
+
+    return;
+
+  }
+
+
+  if (msg) {
+
+    msg.innerHTML =
+      `
+      <div class="notice">
+        Lecture de la carte NFC Coach…
+      </div>
+      `;
+
+  }
+
+
+  try {
+
+    const nfcEmail =
+      'nfc+'
+      +
+      CLUB
+      +
+      '@eah.local';
+
+
+    const result =
+      await postIframe({
+
+        action:
+          'coachLogin',
+
+        club:
+          CLUB,
+
+        email:
+          nfcEmail,
+
+        pin:
+          token
+
+      });
+
+
+    if (
+      !result ||
+      !result.ok
+    ) {
+
+      throw new Error(
+        result?.error
+        ||
+        'Carte NFC Coach invalide.'
+      );
+
+    }
+
+
+    if (msg) {
+      msg.innerHTML = '';
+    }
+
+
+    await finaliserConnexionCoach_(
+      result
+    );
+
+
+    showPage(
+      'club'
+    );
+
+  } catch(error) {
+
+    if (msg) {
+
+      msg.innerHTML =
+        `
+        <div class="notice error">
+          Carte NFC Coach invalide ou désactivée.
+        </div>
+        `;
+
+    }
+
+
+    console.error(
+      error
+    );
+
+  }
+
+}
+
+
+/* =========================================================
+   FINALISER CONNEXION COACH
+========================================================= */
+
+async function finaliserConnexionCoach_(
+  result
+) {
+
+  state.session =
+    result.session;
+
+
+  state.coach =
+    result.coach;
+
+
+  const access =
+    document.getElementById(
+      'clubAccess'
+    );
+
+
+  const privateZone =
+    document.getElementById(
+      'clubPrivate'
+    );
+
+
+  const locked =
+    document.getElementById(
+      'evaluationLocked'
+    );
+
+
+  const form =
+    document.getElementById(
+      'evaluationForm'
+    );
+
+
+  if (access) {
+
+    access.classList.add(
+      'hidden'
+    );
+
+  }
+
+
+  if (privateZone) {
+
+    privateZone.classList.remove(
+      'hidden'
+    );
+
+  }
+
+
+  if (locked) {
+
+    locked.classList.add(
+      'hidden'
+    );
+
+  }
+
+
+  if (form) {
+
+    form.classList.remove(
+      'hidden'
+    );
+
+  }
+
+
+  const badge =
+    document.getElementById(
+      'coachBadge'
+    );
+
+
+  const dashboardBadge =
+    document.getElementById(
+      'dashboardCoachBadge'
+    );
+
+
+  const coachText =
+    (
+      result.coach?.name
+      ||
+      'Coach'
+    )
+    +
+    ' • '
+    +
+    (
+      result.coach?.role
+      ||
+      'Coach'
+    );
+
+
+  if (badge) {
+
+    badge.textContent =
+      coachText;
+
+  }
+
+
+  if (dashboardBadge) {
+
+    dashboardBadge.textContent =
+      coachText;
+
+  }
+
+
+  await loadCoachData();
+
+}
+
+
+/* =========================================================
+   DECONNEXION
+========================================================= */
+
+function logoutCoach() {
+
+  state.session =
+    '';
+
+
+  state.coach =
+    null;
+
+
+  state.divers =
+    [];
+
+
+  document
+    .getElementById(
+      'clubPrivate'
+    )
+    ?.classList
+    .add(
+      'hidden'
+    );
+
+
+  document
+    .getElementById(
+      'clubAccess'
+    )
+    ?.classList
+    .remove(
+      'hidden'
+    );
+
+
+  document
+    .getElementById(
+      'evaluationForm'
+    )
+    ?.classList
+    .add(
+      'hidden'
+    );
+
+
+  document
+    .getElementById(
+      'evaluationLocked'
+    )
+    ?.classList
+    .remove(
+      'hidden'
+    );
+
+
+  const password =
+    document.getElementById(
+      'coachPassword'
+    );
+
+
+  if (password) {
+
+    password.value =
+      '';
+
+  }
+
+
+  showPage(
+    'club'
+  );
+
+}
+
+
+/* =========================================================
+   URL CLUB
+========================================================= */
+
+function updateClubUrl() {
+
+  if (!CLUB) {
+    return;
+  }
+
+
+  const url =
+    new URL(
+      window.location.href
+    );
+
+
+  url.searchParams.set(
+    'club',
+    CLUB
+  );
+
+
+  url.searchParams.delete(
+    'coachToken'
+  );
+
+
+  url.hash =
+    'club';
+
+
+  history.replaceState(
+    null,
+    '',
+    url.toString()
+  );
+
+}
+
+
+/* =========================================================
+   DONNEES COACH
 ========================================================= */
 
 async function loadCoachData() {
 
+  if (
+    !CLUB ||
+    !state.session
+  ) {
+
+    return;
+
+  }
+
+
   const [
-    divers,
-    dashboard
+    diversResult,
+    dashboardResult
   ] =
   await Promise.all([
 
@@ -3067,44 +3588,74 @@ async function loadCoachData() {
 
 
   if (
-    divers.ok
+    diversResult.ok
   ) {
 
     state.divers =
-      divers.items;
-
-
-    document
-      .getElementById(
-        'eahId'
+      (
+        diversResult.items ||
+        []
       )
-      .innerHTML =
-      divers.items
-        .map(
-          diver =>
-          `
-          <option value="${esc(diver.id)}">
+      .filter(
+        diver =>
+          String(
+            diver.name ||
+            ''
+          )
+          .trim() !==
+          ''
+      );
 
-            ${esc(diver.name)}
 
-            —
+    const select =
+      document.getElementById(
+        'eahId'
+      );
 
-            ${esc(diver.group || '')}
 
-          </option>
-          `
-        )
-        .join('');
+    if (select) {
+
+      select.innerHTML =
+        state.divers.length
+        ?
+        state.divers
+          .map(
+            diver =>
+            `
+            <option value="${esc(diver.id)}">
+
+              ${esc(diver.name)}
+
+              ${
+                diver.group
+                ?
+                ' — ' + esc(diver.group)
+                :
+                ''
+              }
+
+            </option>
+            `
+          )
+          .join('')
+        :
+        `
+        <option value="">
+          Aucun plongeur attribué
+        </option>
+        `;
+
+    }
 
   }
 
 
   if (
-    dashboard.ok
+    dashboardResult.ok
   ) {
 
     renderDashboard(
-      dashboard
+      dashboardResult
     );
 
   }
@@ -3125,137 +3676,117 @@ function renderDashboard(
     {};
 
 
-  document
-    .getElementById(
+  const statsBox =
+    document.getElementById(
       'dashboardStats'
-    )
-    .innerHTML =
-    [
+    );
 
-      [
-        'Plongeurs',
-        stats.divers ?? 0
-      ],
 
-      [
-        'Grade Reports',
-        stats.evaluations ?? 0
-      ],
+  if (statsBox) {
 
+    statsBox.innerHTML =
       [
-        'EAH Verified',
-        stats.verified ?? 0
-      ],
 
-      [
-        'Blazons obtenus',
-        stats.blazons ?? 0
+        [
+          'Plongeurs',
+          stats.divers ?? 0
+        ],
+
+        [
+          'Grade Reports',
+          stats.evaluations ?? 0
+        ],
+
+        [
+          'EAH Verified',
+          stats.verified ?? 0
+        ],
+
+        [
+          'Blazons obtenus',
+          stats.blazons ?? 0
+        ]
+
       ]
-
-    ]
-    .map(
-      item =>
-      `
-      <div>
-
-        <strong>
-          ${esc(item[1])}
-        </strong>
-
-        <span>
-          ${esc(item[0])}
-        </span>
-
-      </div>
-      `
-    )
-    .join('');
-
-
-  document
-    .getElementById(
-      'recentDashboard'
-    )
-    .innerHTML =
-    (
-      dashboard.recent ||
-      []
-    )
-    .map(
-      item =>
-      `
-      <div class="history-item">
-
-        <span>
+      .map(
+        item =>
+        `
+        <div>
 
           <strong>
-            ${esc(item.code)}
+            ${esc(item[1])}
           </strong>
 
-          •
+          <span>
+            ${esc(item[0])}
+          </span>
 
-          ${fmtDate(item.date)}
+        </div>
+        `
+      )
+      .join('');
 
-          ${
-            item.verified
-            ?
-            `
-            <span class="badge verified">
-              EAH VERIFIED
-            </span>
-            `
-            :
-            ''
-          }
-
-        </span>
+  }
 
 
-        <span>
-          ${esc(item.eah)}/10
-        </span>
-
-      </div>
-      `
-    )
-    .join('')
-    ||
-    'Aucune évaluation.';
+  const recent =
+    document.getElementById(
+      'recentDashboard'
+    );
 
 
-  document
-    .getElementById(
-      'groupsDashboard'
-    )
-    .innerHTML =
-    Object
-      .entries(
-        dashboard.groups ||
-        {}
+  if (recent) {
+
+    recent.innerHTML =
+      (
+        dashboard.recent ||
+        []
       )
       .map(
-        ([group,value]) =>
+        item =>
         `
         <div class="history-item">
 
           <span>
 
             <strong>
-              ${esc(group)}
+              ${esc(item.code || '')}
             </strong>
+
+            ${
+              item.date
+              ?
+              ' • ' + esc(fmtDate(item.date))
+              :
+              ''
+            }
+
+            ${
+              item.verified
+              ?
+              `
+              <br>
+
+              <span class="badge verified">
+                EAH VERIFIED
+              </span>
+              `
+              :
+              ''
+            }
 
           </span>
 
 
           <span>
 
-            ${esc(value.divers)}
-            plongeur(s)
-
-            •
-
-            ${esc(value.evaluations)}
-            évaluation(s)
+            ${
+              item.eah !== undefined
+              ?
+              esc(item.eah) + '/10'
+              :
+              '—'
+            }
 
           </span>
 
@@ -3263,14 +3794,818 @@ function renderDashboard(
         `
       )
       .join('')
-    ||
-    'Aucun groupe.';
+      ||
+      'Aucune évaluation.';
+
+  }
+
+
+  const groups =
+    document.getElementById(
+      'groupsDashboard'
+    );
+
+
+  if (groups) {
+
+    groups.innerHTML =
+      Object
+        .entries(
+          dashboard.groups ||
+          {}
+        )
+        .map(
+          ([group,value]) =>
+          `
+          <div class="history-item">
+
+            <span>
+              <strong>
+                ${esc(group)}
+              </strong>
+            </span>
+
+            <span>
+
+              ${esc(value.divers ?? 0)}
+              plongeur(s)
+
+              •
+
+              ${esc(value.evaluations ?? 0)}
+              évaluation(s)
+
+            </span>
+
+          </div>
+          `
+        )
+        .join('')
+      ||
+      'Aucun groupe.';
+
+  }
 
 }
 
 
 /* =========================================================
-   ENVOI ÉVALUATION
+   ACCES PLONGEUR ESPACE CLUB
+========================================================= */
+
+async function diverLoginFromClub() {
+
+  const clubName =
+    val(
+      'diverClubName'
+    )
+    .trim();
+
+
+  const eahId =
+    val(
+      'diverEahId'
+    )
+    .trim();
+
+
+  const token =
+    val(
+      'diverToken'
+    )
+    .trim();
+
+
+  if (
+    !eahId ||
+    !token
+  ) {
+
+    alert(
+      'Numéro EAH et token obligatoires.'
+    );
+
+    return;
+
+  }
+
+
+  try {
+
+    let slug =
+      CLUB;
+
+
+    if (
+      clubName
+    ) {
+
+      const resolved =
+        await getJSON(
+          'resolveClub',
+          {
+            name:
+              clubName
+          }
+        );
+
+
+      if (
+        !resolved.ok
+      ) {
+
+        throw new Error(
+          resolved.error
+          ||
+          'Club introuvable.'
+        );
+
+      }
+
+
+      slug =
+        resolved.club.slug;
+
+    }
+
+
+    if (!slug) {
+
+      throw new Error(
+        'Indique le nom du club.'
+      );
+
+    }
+
+
+    CLUB =
+      slug;
+
+
+    document
+      .getElementById(
+        'profileId'
+      )
+      .value =
+      eahId;
+
+
+    document
+      .getElementById(
+        'profileToken'
+      )
+      .value =
+      token;
+
+
+    const url =
+      new URL(
+        window.location.href
+      );
+
+
+    url.searchParams.set(
+      'club',
+      CLUB
+    );
+
+
+    url.searchParams.set(
+      'id',
+      eahId
+    );
+
+
+    url.searchParams.set(
+      'token',
+      token
+    );
+
+
+    url.searchParams.delete(
+      'coachToken'
+    );
+
+
+    url.hash =
+      'profil';
+
+
+    history.replaceState(
+      null,
+      '',
+      url.toString()
+    );
+
+
+    showPage(
+      'profil'
+    );
+
+
+    await loadProfileManual();
+
+  } catch(error) {
+
+    alert(
+      error.message
+    );
+
+  }
+
+}
+
+
+/* =========================================================
+   PROFIL
+========================================================= */
+
+async function loadProfileManual() {
+
+  const id =
+    val(
+      'profileId'
+    )
+    .trim();
+
+
+  const token =
+    val(
+      'profileToken'
+    )
+    .trim();
+
+
+  const view =
+    document.getElementById(
+      'profileView'
+    );
+
+
+  if (
+    !id ||
+    !token
+  ) {
+
+    return;
+
+  }
+
+
+  if (!CLUB) {
+
+    if (view) {
+
+      view.classList.remove(
+        'hidden'
+      );
+
+
+      view.innerHTML =
+        `
+        <div class="notice error">
+          Le club n'est pas renseigné.
+        </div>
+        `;
+
+    }
+
+
+    return;
+
+  }
+
+
+  if (view) {
+
+    view.classList.remove(
+      'hidden'
+    );
+
+
+    view.innerHTML =
+      `
+      <div class="notice">
+        Chargement du profil…
+      </div>
+      `;
+
+  }
+
+
+  try {
+
+    const result =
+      await getJSON(
+        'profile',
+        {
+          club:
+            CLUB,
+
+          id,
+
+          token
+        }
+      );
+
+
+    if (
+      !result.ok
+    ) {
+
+      throw new Error(
+        result.error
+        ||
+        'Profil introuvable.'
+      );
+
+    }
+
+
+    renderProfile(
+      result.profile
+    );
+
+  } catch(error) {
+
+    if (view) {
+
+      view.innerHTML =
+        `
+        <div class="notice error">
+          ${esc(error.message)}
+        </div>
+        `;
+
+    }
+
+  }
+
+}
+
+
+function renderProfile(
+  profile
+) {
+
+  const empty =
+    document.getElementById(
+      'profileEmpty'
+    );
+
+
+  const view =
+    document.getElementById(
+      'profileView'
+    );
+
+
+  if (empty) {
+
+    empty.classList.add(
+      'hidden'
+    );
+
+  }
+
+
+  if (!view) {
+    return;
+  }
+
+
+  const history =
+    profile.evaluations ||
+    [];
+
+
+  const photo =
+    driveImage(
+      profile.photoUrl ||
+      ''
+    );
+
+
+  view.innerHTML =
+  `
+  <div class="profile-card">
+
+    <div class="profile-head">
+
+      ${
+        photo
+        ?
+        `
+        <img
+          class="avatar"
+          src="${esc(photo)}"
+          alt=""
+        >
+        `
+        :
+        `
+        <div class="avatar">
+        </div>
+        `
+      }
+
+
+      <div>
+
+        <span class="badge">
+          ${esc(profile.eahId || '')}
+        </span>
+
+
+        <h2>
+
+          ${esc(profile.firstName || '')}
+
+          ${esc(profile.lastName || '')}
+
+        </h2>
+
+
+        <p>
+
+          ${esc(profile.club || '')}
+
+          ${
+            profile.group
+            ?
+            ' • ' + esc(profile.group)
+            :
+            ''
+          }
+
+        </p>
+
+
+        <p>
+
+          <strong>
+            Blazon actuel :
+          </strong>
+
+          ${esc(
+            profile.currentBlazon
+            ||
+            'En progression'
+          )}
+
+        </p>
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+  <div class="examples-grid">
+
+
+    <article class="example-panel">
+
+      <span class="overline">
+        PROGRESSION
+      </span>
+
+      <h3>
+        Blazons
+      </h3>
+
+
+      ${
+        (
+          profile.blazons ||
+          []
+        )
+        .map(
+          blazon =>
+          `
+          <div class="history-item">
+
+            <span>
+              ${esc(blazon.name || '')}
+            </span>
+
+            <span>
+
+              ${
+                blazon.status ===
+                'OBTENU'
+                ?
+                `
+                <span class="badge">
+                  OBTENU
+                </span>
+                `
+                :
+                (
+                  blazon.progress !==
+                  undefined
+                  ?
+                  esc(blazon.progress)
+                  +
+                  ' %'
+                  :
+                  '—'
+                )
+              }
+
+            </span>
+
+          </div>
+          `
+        )
+        .join('')
+        ||
+        'Aucune progression enregistrée.'
+      }
+
+    </article>
+
+
+    <article class="example-panel">
+
+      <span class="overline">
+        HISTORIQUE
+      </span>
+
+      <h3>
+        Grade Reports
+      </h3>
+
+
+      ${
+        history
+        .map(
+          item =>
+          `
+          <div class="history-item">
+
+            <span>
+
+              <strong>
+                ${esc(item.code || '')}
+              </strong>
+
+              ${
+                item.height
+                ?
+                ' — ' + esc(item.height) + ' m'
+                :
+                ''
+              }
+
+              <br>
+
+              <small>
+
+                ${esc(fmtDate(item.date))}
+
+                ${
+                  item.spot
+                  ?
+                  ' • ' + esc(item.spot)
+                  :
+                  ''
+                }
+
+              </small>
+
+            </span>
+
+
+            <span>
+
+              <strong>
+
+                EAH
+
+                ${esc(item.eah ?? '—')}/10
+
+              </strong>
+
+
+              ${
+                item.verified
+                ?
+                `
+                <br>
+
+                <span class="badge verified">
+                  EAH VERIFIED
+                </span>
+                `
+                :
+                ''
+              }
+
+
+              ${
+                item.reportUrl
+                ?
+                `
+                <br>
+
+                <a
+                  href="${esc(item.reportUrl)}"
+                  target="_blank"
+                  rel="noopener"
+                >
+                  Ouvrir PDF
+                </a>
+                `
+                :
+                ''
+              }
+
+            </span>
+
+          </div>
+          `
+        )
+        .join('')
+        ||
+        'Aucune évaluation.'
+      }
+
+    </article>
+
+  </div>
+  `;
+
+}
+
+
+/* =========================================================
+   POPULATION
+========================================================= */
+
+async function loadPopulation() {
+
+  const code =
+    val(
+      'populationCode'
+    )
+    .trim()
+    .toUpperCase();
+
+
+  const box =
+    document.getElementById(
+      'populationResults'
+    );
+
+
+  if (!box) {
+    return;
+  }
+
+
+  if (!code) {
+
+    box.innerHTML =
+      `
+      <div class="notice">
+        Entre un code de plongeon.
+      </div>
+      `;
+
+    return;
+
+  }
+
+
+  box.innerHTML =
+    `
+    <div class="notice">
+      Chargement…
+    </div>
+    `;
+
+
+  try {
+
+    const result =
+      await getJSON(
+        'population',
+        {
+          club:
+            CLUB || '',
+
+          code
+        }
+      );
+
+
+    if (
+      !result.ok
+    ) {
+
+      throw new Error(
+        result.error
+        ||
+        'Données indisponibles.'
+      );
+
+    }
+
+
+    const global =
+      result.global ||
+      {};
+
+
+    const club =
+      result.club ||
+      {};
+
+
+    box.innerHTML =
+    `
+    <div class="metrics dashboard-metrics">
+
+      ${
+        result.club
+        ?
+        `
+        <div>
+
+          <strong>
+            ${esc(club.people ?? 0)}
+          </strong>
+
+          <span>
+            plongeurs du club
+          </span>
+
+        </div>
+        `
+        :
+        ''
+      }
+
+
+      <div>
+
+        <strong>
+          ${esc(global.people ?? 0)}
+        </strong>
+
+        <span>
+          plongeurs EAH
+        </span>
+
+      </div>
+
+
+      <div>
+
+        <strong>
+          ${esc(global.avgEah ?? '—')}
+        </strong>
+
+        <span>
+          moyenne EAH
+        </span>
+
+      </div>
+
+
+      <div>
+
+        <strong>
+          ${esc(global.avgWa ?? '—')}
+        </strong>
+
+        <span>
+          moyenne World Aquatics
+        </span>
+
+      </div>
+
+    </div>
+    `;
+
+  } catch(error) {
+
+    box.innerHTML =
+      `
+      <div class="notice error">
+        ${esc(error.message)}
+      </div>
+      `;
+
+  }
+
+}
+
+
+/* =========================================================
+   EVALUATION COACH
 ========================================================= */
 
 async function submitEvaluation(
@@ -3280,13 +4615,26 @@ async function submitEvaluation(
   event.preventDefault();
 
 
+  if (
+    !state.session
+  ) {
+
+    alert(
+      'Connexion coach requise.'
+    );
+
+    return;
+
+  }
+
+
   const button =
     document.getElementById(
       'submitEvalBtn'
     );
 
 
-  const msg =
+  const message =
     document.getElementById(
       'evaluationMsg'
     );
@@ -3300,7 +4648,7 @@ async function submitEvaluation(
     'Génération en cours…';
 
 
-  msg.innerHTML =
+  message.innerHTML =
     '';
 
 
@@ -3336,7 +4684,7 @@ async function submitEvaluation(
       ) {
 
         throw new Error(
-          'La vidéo dépasse 20 Mo. Utilise le champ URL.'
+          'La vidéo dépasse 20 Mo. Utilise une URL.'
         );
 
       }
@@ -3492,18 +4840,20 @@ async function submitEvaluation(
 
 
     if (
+      !result ||
       !result.ok
     ) {
 
       throw new Error(
-        result.error ||
-        'Erreur'
+        result?.error
+        ||
+        'Erreur lors de la création du Grade Report.'
       );
 
     }
 
 
-    msg.innerHTML =
+    message.innerHTML =
       `
       <div class="notice success">
 
@@ -3511,37 +4861,46 @@ async function submitEvaluation(
           Grade Report généré.
         </strong>
 
-        <br>
+        <br><br>
 
-        Takeoff
+        Takeoff :
         ${esc(result.takeoff)}/10
 
-        •
+        <br>
 
-        Trick
+        Trick :
         ${esc(result.trick)}/10
 
-        •
+        <br>
 
-        Entry
+        Entry :
         ${esc(result.entry)}/10
 
-        •
+        <br><br>
 
         <strong>
-          EAH
+          Note EAH :
           ${esc(result.eahScore)}/10
         </strong>
 
-        <br>
+        ${
+          result.reportUrl
+          ?
+          `
+          <br><br>
 
-        <a
-          class="button small"
-          href="${esc(result.reportUrl)}"
-          target="_blank"
-        >
-          Ouvrir le PDF
-        </a>
+          <a
+            class="button small"
+            href="${esc(result.reportUrl)}"
+            target="_blank"
+            rel="noopener"
+          >
+            Ouvrir le Grade Report
+          </a>
+          `
+          :
+          ''
+        }
 
       </div>
       `;
@@ -3559,7 +4918,7 @@ async function submitEvaluation(
 
   } catch(error) {
 
-    msg.innerHTML =
+    message.innerHTML =
       `
       <div class="notice error">
         ${esc(error.message)}
@@ -3581,7 +4940,7 @@ async function submitEvaluation(
 
 
 /* =========================================================
-   FICHIER VIDEO
+   VIDEO
 ========================================================= */
 
 function fileToDataUrl(
@@ -3599,10 +4958,13 @@ function fileToDataUrl(
 
 
       reader.onload =
-        () =>
+        () => {
+
           resolve(
             reader.result
           );
+
+        };
 
 
       reader.onerror =
@@ -3620,532 +4982,34 @@ function fileToDataUrl(
 
 
 /* =========================================================
-   PROFIL PLONGEUR
-========================================================= */
-
-async function loadProfileManual() {
-
-  const id =
-    val(
-      'profileId'
-    )
-    .trim();
-
-
-  const token =
-    val(
-      'profileToken'
-    )
-    .trim();
-
-
-  const view =
-    document.getElementById(
-      'profileView'
-    );
-
-
-  if (!id) {
-    return;
-  }
-
-
-  view.classList.remove(
-    'hidden'
-  );
-
-
-  if (!CLUB) {
-
-    view.innerHTML =
-      `
-      <div class="notice error">
-
-        Le lien du profil doit contenir :
-
-        ?club=nom-du-club
-
-      </div>
-      `;
-
-    return;
-
-  }
-
-
-  view.innerHTML =
-    `
-    <div class="notice">
-      Chargement…
-    </div>
-    `;
-
-
-  try {
-
-    const result =
-      await getJSON(
-        'profile',
-        {
-          club:
-            CLUB,
-
-          id,
-
-          token
-        }
-      );
-
-
-    if (
-      !result.ok
-    ) {
-
-      throw new Error(
-        result.error
-      );
-
-    }
-
-
-    renderProfile(
-      result.profile
-    );
-
-  } catch(error) {
-
-    view.innerHTML =
-      `
-      <div class="notice error">
-        ${esc(error.message)}
-      </div>
-      `;
-
-  }
-
-}
-
-
-function renderProfile(
-  profile
-) {
-
-  document
-    .getElementById(
-      'profileEmpty'
-    )
-    .classList
-    .add(
-      'hidden'
-    );
-
-
-  const history =
-    profile.evaluations ||
-    [];
-
-
-  document
-    .getElementById(
-      'profileView'
-    )
-    .innerHTML =
-  `
-  <div class="profile-card">
-
-    <div class="profile-head">
-
-      ${
-        profile.photoUrl
-        ?
-        `
-        <img
-          class="avatar"
-          src="${esc(driveImage(profile.photoUrl))}"
-          alt=""
-        >
-        `
-        :
-        `
-        <div class="avatar">
-        </div>
-        `
-      }
-
-
-      <div>
-
-        <span class="badge">
-          ${esc(profile.eahId)}
-        </span>
-
-        <h2>
-          ${esc(profile.firstName)}
-          ${esc(profile.lastName)}
-        </h2>
-
-        <p>
-          ${esc(profile.club)}
-          •
-          ${esc(profile.group || '')}
-        </p>
-
-        <p>
-
-          <strong>
-            Blazon actuel :
-          </strong>
-
-          ${esc(
-            profile.currentBlazon ||
-            'En progression'
-          )}
-
-        </p>
-
-      </div>
-
-    </div>
-
-  </div>
-
-
-  <div class="examples-grid">
-
-    <article class="example-panel">
-
-      <span class="overline">
-        PROGRESSION
-      </span>
-
-      <h3>
-        Blazons
-      </h3>
-
-      ${
-        (
-          profile.blazons ||
-          []
-        )
-        .map(
-          blazon =>
-          `
-          <div class="history-item">
-
-            <span>
-              ${esc(blazon.name)}
-            </span>
-
-            <span>
-
-              ${
-                blazon.status ===
-                'OBTENU'
-                ?
-                `
-                <span class="badge">
-                  OBTENU
-                </span>
-                `
-                :
-                esc(blazon.progress)
-                +
-                ' %'
-              }
-
-            </span>
-
-          </div>
-          `
-        )
-        .join('')
-        ||
-        'Aucune progression.'
-      }
-
-    </article>
-
-
-    <article class="example-panel">
-
-      <span class="overline">
-        HISTORIQUE
-      </span>
-
-      <h3>
-        Grade Reports
-      </h3>
-
-      ${
-        history
-        .map(
-          item =>
-          `
-          <div class="history-item">
-
-            <span>
-
-              <strong>
-                ${esc(item.code)}
-              </strong>
-
-              —
-
-              ${esc(item.height)}
-              m
-
-              <br>
-
-              <small>
-
-                ${fmtDate(item.date)}
-
-                •
-
-                ${esc(item.spot || '')}
-
-              </small>
-
-            </span>
-
-
-            <span>
-
-              <strong>
-                EAH
-                ${esc(item.eah)}/10
-              </strong>
-
-              ${
-                item.verified
-                ?
-                `
-                <br>
-
-                <span class="badge verified">
-                  EAH VERIFIED
-                </span>
-                `
-                :
-                ''
-              }
-
-              ${
-                item.reportUrl
-                ?
-                `
-                <br>
-
-                <a
-                  href="${esc(item.reportUrl)}"
-                  target="_blank"
-                >
-                  PDF
-                </a>
-                `
-                :
-                ''
-              }
-
-            </span>
-
-          </div>
-          `
-        )
-        .join('')
-        ||
-        'Aucune évaluation.'
-      }
-
-    </article>
-
-  </div>
-  `;
-
-}
-
-
-/* =========================================================
-   POPULATION
-========================================================= */
-
-async function loadPopulation() {
-
-  const code =
-    val(
-      'populationCode'
-    )
-    .trim()
-    .toUpperCase();
-
-
-  const box =
-    document.getElementById(
-      'populationResults'
-    );
-
-
-  if (!code) {
-
-    box.innerHTML =
-      `
-      <div class="notice">
-        Entre un code de plongeon.
-      </div>
-      `;
-
-    return;
-
-  }
-
-
-  if (!CLUB) {
-
-    box.innerHTML =
-      `
-      <div class="notice">
-
-        Pour le moment,
-        ouvre un club pour consulter la Population.
-
-      </div>
-      `;
-
-    return;
-
-  }
-
-
-  box.innerHTML =
-    `
-    <div class="notice">
-      Chargement…
-    </div>
-    `;
-
-
-  try {
-
-    const result =
-      await getJSON(
-        'population',
-        {
-          club:
-            CLUB,
-
-          code
-        }
-      );
-
-
-    if (
-      !result.ok
-    ) {
-
-      throw new Error(
-        result.error
-      );
-
-    }
-
-
-    box.innerHTML =
-    `
-    <div class="metrics dashboard-metrics">
-
-      <div>
-
-        <strong>
-          ${esc(result.club.people)}
-        </strong>
-
-        <span>
-          plongeurs du club
-        </span>
-
-      </div>
-
-
-      <div>
-
-        <strong>
-          ${esc(result.global.people)}
-        </strong>
-
-        <span>
-          plongeurs EAH
-        </span>
-
-      </div>
-
-
-      <div>
-
-        <strong>
-          ${esc(result.global.avgEah ?? '—')}
-        </strong>
-
-        <span>
-          moyenne EAH
-        </span>
-
-      </div>
-
-
-      <div>
-
-        <strong>
-          ${esc(result.global.avgWa ?? '—')}
-        </strong>
-
-        <span>
-          moyenne WA
-        </span>
-
-      </div>
-
-    </div>
-    `;
-
-  } catch(error) {
-
-    box.innerHTML =
-      `
-      <div class="notice error">
-        ${esc(error.message)}
-      </div>
-      `;
-
-  }
-
-}
-
-
-/* =========================================================
    FORMULAIRE PUBLIC
 ========================================================= */
 
-document
-  .getElementById(
+const publicGradingForm =
+  document.getElementById(
     'publicGradingForm'
-  )
-  ?.addEventListener(
+  );
+
+
+if (publicGradingForm) {
+
+  publicGradingForm.addEventListener(
     'submit',
     async event => {
 
       event.preventDefault();
 
 
-      const msg =
+      const message =
         document.getElementById(
           'publicFormMessage'
         );
 
 
-      msg.innerHTML =
+      message.innerHTML =
         `
         <div class="notice">
-          Envoi…
+          Envoi de la demande…
         </div>
         `;
 
@@ -4207,18 +5071,20 @@ document
 
 
         if (
+          !result ||
           !result.ok
         ) {
 
           throw new Error(
-            result.error ||
-            'Erreur'
+            result?.error
+            ||
+            'Impossible d’enregistrer la demande.'
           );
 
         }
 
 
-        msg.innerHTML =
+        message.innerHTML =
           `
           <div class="notice success">
 
@@ -4231,6 +5097,7 @@ document
               ?
               `
               <br>
+
               Référence :
               ${esc(result.requestId)}
               `
@@ -4246,7 +5113,7 @@ document
 
       } catch(error) {
 
-        msg.innerHTML =
+        message.innerHTML =
           `
           <div class="notice error">
             ${esc(error.message)}
@@ -4257,6 +5124,8 @@ document
 
     }
   );
+
+}
 
 
 /* =========================================================
