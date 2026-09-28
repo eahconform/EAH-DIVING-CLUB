@@ -2990,54 +2990,49 @@ function openNews(
 
 async function coachQuickLogin() {
 
-  const msg =
-    document.getElementById(
-      'loginMsg'
-    );
-
-
-  if (!msg) {
-    return;
-  }
-
-
   const clubName =
-    val(
-      'coachClubName'
-    )
+    val("coachClubName")
     .trim();
 
 
   const password =
-    val(
-      'coachPassword'
-    )
+    val("coachPassword")
     .trim();
 
 
-  if (
-    !clubName ||
-    !password
-  ) {
+  const msg =
+    document.getElementById(
+      "loginMsg"
+    );
 
-    msg.innerHTML =
-      `
+
+  if (!clubName || !password) {
+
+    msg.innerHTML = `
       <div class="notice error">
-        Nom du club et mot de passe obligatoires.
+        Indique le nom du club et le mot de passe.
       </div>
-      `;
+    `;
 
     return;
-
   }
 
 
-  msg.innerHTML =
-    `
-    <div class="notice">
-      Connexion…
-    </div>
-    `;
+  const button =
+    document.querySelector(
+      "#clubAccess .button.submit"
+    );
+
+
+  if (button) {
+
+    button.disabled =
+      true;
+
+    button.textContent =
+      "Connexion…";
+
+  }
 
 
   try {
@@ -3046,214 +3041,301 @@ async function coachQuickLogin() {
       await postIframe({
 
         action:
-          'coachQuickLogin',
+          "coachQuickLogin",
 
-        clubName,
+        clubName:
+          clubName,
 
-        password
+        password:
+          password
 
       });
 
 
-    if (
-      !result ||
-      !result.ok
-    ) {
+    if (!result || !result.ok) {
 
       throw new Error(
-        result?.error
-        ||
-        'Connexion refusée.'
+        result?.error ||
+        "Connexion refusée."
       );
 
     }
 
 
-    if (
-      result.club?.slug
-    ) {
-
-      CLUB =
-        result.club.slug;
-
-    }
+    CLUB =
+      result.club.slug;
 
 
-    if (
-      result.club
-    ) {
-
-      const clubResult =
-        await getJSON(
-          'club',
-          {
-            club:
-              CLUB
-          }
-        );
+    state.session =
+      result.session;
 
 
-      if (
-        clubResult.ok
-      ) {
-
-        state.club =
-          clubResult.club;
+    state.coach =
+      result.coach;
 
 
-        renderClubIdentity(
-          clubResult.club
-        );
+    document
+      .getElementById("clubAccess")
+      ?.classList
+      .add("hidden");
 
 
-        prefillClubNames(
-          clubResult.club.name
-        );
+    document
+      .getElementById("clubPrivate")
+      ?.classList
+      .remove("hidden");
 
-      }
 
-    }
+    document
+      .getElementById("evaluationLocked")
+      ?.classList
+      .add("hidden");
+
+
+    document
+      .getElementById("evaluationForm")
+      ?.classList
+      .remove("hidden");
+
+
+    const coachText =
+      (result.coach?.name || "Coach")
+      +
+      " • "
+      +
+      (result.coach?.role || "Coach");
+
+
+    document.getElementById(
+      "coachBadge"
+    ).textContent =
+      coachText;
+
+
+    document.getElementById(
+      "dashboardCoachBadge"
+    ).textContent =
+      coachText;
+
+
+    /*
+      Pas d'appel supplémentaire bloquant.
+    */
+
+    showPage("club");
+
+
+    msg.innerHTML =
+      "";
 
 
     updateClubUrl();
 
 
-    msg.innerHTML =
-      '';
+    /*
+      Le dashboard charge ensuite.
+    */
 
+    loadCoachData()
+      .catch(console.error);
 
-    await finaliserConnexionCoach_(
-      result
-    );
 
   } catch(error) {
 
-    msg.innerHTML =
-      `
+    msg.innerHTML = `
       <div class="notice error">
         ${esc(error.message)}
       </div>
-      `;
+    `;
+
+
+  } finally {
+
+    if (button) {
+
+      button.disabled =
+        false;
+
+      button.textContent =
+        "Se connecter";
+
+    }
 
   }
 
 }
 
-
 /* =========================================================
    CARTE NFC COACH
 ========================================================= */
 
-async function autoCoachNfcLogin(
-  token
-) {
+async function autoCoachNfcLogin(token) {
+
+  if (!CLUB || !token) {
+    return;
+  }
+
 
   const msg =
-    document.getElementById(
-      'loginMsg'
-    );
+    document.getElementById("loginMsg");
 
 
-  if (
-    !CLUB ||
-    !token
-  ) {
+  /* On masque immédiatement le formulaire */
+  const access =
+    document.getElementById("clubAccess");
 
-    return;
 
+  if (access) {
+    access.classList.add("hidden");
   }
 
 
   if (msg) {
 
-    msg.innerHTML =
-      `
+    msg.innerHTML = `
       <div class="notice">
-        Lecture de la carte NFC Coach…
+        ⚡ Connexion NFC…
       </div>
-      `;
+    `;
 
   }
 
 
   try {
 
-    const nfcEmail =
-      'nfc+'
-      +
-      CLUB
-      +
-      '@eah.local';
-
-
     const result =
       await postIframe({
 
-        action:
-          'coachLogin',
+        action: "coachLogin",
 
-        club:
-          CLUB,
+        club: CLUB,
 
         email:
-          nfcEmail,
+          "nfc+" +
+          CLUB +
+          "@eah.local",
 
-        pin:
-          token
+        pin: token
 
       });
 
 
-    if (
-      !result ||
-      !result.ok
-    ) {
+    if (!result || !result.ok) {
 
       throw new Error(
-        result?.error
-        ||
-        'Carte NFC Coach invalide.'
+        result?.error ||
+        "Carte NFC invalide."
       );
 
     }
 
 
-    if (msg) {
-      msg.innerHTML = '';
+    state.session =
+      result.session;
+
+    state.coach =
+      result.coach;
+
+
+    document
+      .getElementById("clubPrivate")
+      ?.classList
+      .remove("hidden");
+
+
+    document
+      .getElementById("evaluationLocked")
+      ?.classList
+      .add("hidden");
+
+
+    document
+      .getElementById("evaluationForm")
+      ?.classList
+      .remove("hidden");
+
+
+    const coachText =
+      (result.coach?.name || "Coach")
+      +
+      " • "
+      +
+      (result.coach?.role || "Coach");
+
+
+    const badge =
+      document.getElementById("coachBadge");
+
+
+    if (badge) {
+      badge.textContent =
+        coachText;
     }
 
 
-    await finaliserConnexionCoach_(
-      result
-    );
+    const dashboardBadge =
+      document.getElementById(
+        "dashboardCoachBadge"
+      );
 
 
-    showPage(
-      'club'
-    );
+    if (dashboardBadge) {
+      dashboardBadge.textContent =
+        coachText;
+    }
+
+
+    /*
+      On affiche immédiatement l'espace club.
+      Les données du dashboard chargent ensuite.
+    */
+
+    showPage("club");
+
+
+    if (msg) {
+      msg.innerHTML = "";
+    }
+
+
+    /*
+      Chargement secondaire :
+      cela ne bloque plus l'ouverture de l'espace coach.
+    */
+
+    loadCoachData()
+      .catch(
+        error =>
+          console.error(
+            "Dashboard :",
+            error
+          )
+      );
+
 
   } catch(error) {
 
-    if (msg) {
+    console.error(error);
 
-      msg.innerHTML =
-        `
-        <div class="notice error">
-          Carte NFC Coach invalide ou désactivée.
-        </div>
-        `;
 
+    if (access) {
+      access.classList.remove("hidden");
     }
 
 
-    console.error(
-      error
-    );
+    if (msg) {
+
+      msg.innerHTML = `
+        <div class="notice error">
+          Carte NFC Coach invalide ou désactivée.
+        </div>
+      `;
+
+    }
 
   }
 
 }
-
 
 /* =========================================================
    FINALISER CONNEXION COACH
