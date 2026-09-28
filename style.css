@@ -2534,3 +2534,60 @@ footer{
   }
 
 }
+/* =========================================================
+   BLAZONS - AFFICHAGE PHOTO
+========================================================= */
+
+.blazon-photo-card{
+  min-height:290px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  padding:22px;
+}
+
+.blazon-photo-card img{
+  width:100%;
+  height:190px;
+  object-fit:contain;
+  margin:auto;
+  filter:drop-shadow(0 20px 30px rgba(0,0,0,.4));
+}
+
+.blazon-photo-card h3{
+  margin:14px 0 5px;
+  font-size:22px;
+}
+
+.blazon-open{
+  color:#70d3ff;
+  font-size:12px;
+  font-weight:800;
+}
+
+.blazon-image-missing{
+  height:190px;
+  width:100%;
+  display:grid;
+  place-items:center;
+  border:1px dashed rgba(120,200,255,.25);
+  border-radius:18px;
+  color:#7995aa;
+}
+
+@media(max-width:700px){
+
+  .blazon-photo-card{
+    min-height:220px;
+  }
+
+  .blazon-photo-card img{
+    height:130px;
+  }
+
+  .blazon-photo-card h3{
+    font-size:17px;
+  }
+
+}
